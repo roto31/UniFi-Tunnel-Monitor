@@ -26,7 +26,6 @@ SwiftBar). Together they give you:
 ## Repository layout
 
 ```
-Public/
 ├── README.md                # this file
 ├── PLACEHOLDERS.md          # every placeholder + what to set it to
 ├── LICENSE                  # MIT
