@@ -265,24 +265,24 @@ where the router itself is unreachable (the Mac side flags
 sequenceDiagram
     participant MAC_M as Mac monitor.sh
     participant MAC_SSH as ssh-router-state.sh
-    participant SSH as ssh client (BatchMode)
+    participant SSH as ssh client BatchMode
     participant GW as UniFi gateway
-    participant GW_STATE as /data/tunnel-monitor/state
+    participant GW_STATE as router state file
 
-    MAC_M->>MAC_SSH: invoke (every cycle)
-    MAC_SSH->>MAC_SSH: source config.env<br/>(ROUTER_HOST / USER / KEY / PATH)
-    MAC_SSH->>SSH: ssh -i KEY -o BatchMode=yes ...<br/>'cat /data/tunnel-monitor/state'
-    SSH->>GW: TCP 22 + IKEv2 keyx
-    GW->>GW_STATE: cat
-    GW_STATE-->>GW: 'N:UP' or 'N:DOWN'
+    MAC_M->>MAC_SSH: invoke each cycle
+    MAC_SSH->>MAC_SSH: source config env
+    MAC_SSH->>SSH: ssh cat state path on router
+    SSH->>GW: TCP 22
+    GW->>GW_STATE: read file
+    GW_STATE-->>GW: N colon UP or DOWN
     GW-->>SSH: stdout
     SSH-->>MAC_SSH: stdout
-    MAC_SSH->>MAC_SSH: validate against ^[0-9]+:(UP|DOWN)$
-    alt valid
-        MAC_SSH-->>MAC_M: print state line; exit 0
-    else SSH failed OR malformed
+    MAC_SSH->>MAC_SSH: validate N colon UP or DOWN pattern
+    alt Valid state line
+        MAC_SSH-->>MAC_M: print line and exit 0
+    else SSH failed or malformed line
         MAC_SSH-->>MAC_M: exit non-zero
-        Note over MAC_M: treat as "router unreachable"<br/>diagnosis = ROUTER_UNREACHABLE
+        Note over MAC_M: treat as router unreachable ROUTER_UNREACHABLE
     end
 ```
 
