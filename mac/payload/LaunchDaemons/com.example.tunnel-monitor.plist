@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    LaunchDaemon for the Mac tunnel monitor.
+
+    Rename the file AND the Label below to something unique under your own
+    reverse-DNS namespace before installing — e.g. com.yourusername.tunnel-monitor.
+    The installer reads the filename to derive the launchctl label, so the two
+    must match.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.tunnel-monitor</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/tunnel-monitor/monitor.sh</string>
+    </array>
+
+    <!-- Run every 5 minutes. Do not poll faster than 30 s. -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/opt/tunnel-monitor/launchd.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/opt/tunnel-monitor/launchd.stderr.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/opt/tunnel-monitor</string>
+
+    <!-- /opt/homebrew/bin is first so root-launched scripts find jq on Apple Silicon. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+
+    <!-- If we ever exit non-zero, throttle before retrying. monitor.sh
+         force-exits 0 anyway, so this is belt-and-suspenders. -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <!-- Hint to the scheduler that this is a tolerant background job. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

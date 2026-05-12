@@ -1,0 +1,13 @@
+[Unit]
+Description=Site-to-site Tunnel Health Monitor
+After=network-online.target strongswan-starter.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/data/tunnel-monitor/monitor.sh
+User=root
+StandardOutput=journal
+StandardError=journal
+# Avoid hanging on a flaky tunnel
+TimeoutStartSec=120

@@ -1,0 +1,61 @@
+#!/bin/bash
+# =============================================================================
+# tunnel-check — one-shot diagnostic dump
+# Usage:
+#   tunnel-check           # show full diagnostics
+#   tunnel-check --test-email  # send a test email through the alert pipeline
+#   tunnel-check --reset   # clear failure counter (e.g. after manual fix)
+# =============================================================================
+
+set -u
+SCRIPT_DIR="/data/tunnel-monitor"
+
+case "${1:-}" in
+    --test-email)
+        echo "Sending test email..."
+        "${SCRIPT_DIR}/send-email.sh" \
+            "TEST — Site-to-site Tunnel Monitor" \
+            "This is a test email from the tunnel monitor on $(hostname) at $(date)."
+        echo "Done. Exit: $?"
+        ;;
+    --reset)
+        echo "0:UP" > "${SCRIPT_DIR}/state"
+        echo "State reset to 0:UP"
+        ;;
+    --tail)
+        journalctl -u tunnel-monitor.service -f
+        ;;
+    --history)
+        journalctl -u tunnel-monitor.service --no-pager -n 50
+        ;;
+    *)
+        # shellcheck disable=SC1090
+        source "${SCRIPT_DIR}/config.env"
+
+        echo "================ Tunnel Monitor — Live Status ================"
+        echo "Time:        $(date)"
+        echo "State file:  $(cat ${SCRIPT_DIR}/state 2>/dev/null || echo 'no state yet')"
+        echo
+        echo "[ DNS ]"
+        RESOLVED=$(dig +short +time=3 +tries=1 "$REMOTE_DDNS" @1.1.1.1 | head -1)
+        echo "  $REMOTE_DDNS  =>  ${RESOLVED:-FAILED}"
+        echo "  Expected:        ${REMOTE_WAN_IP}"
+        [[ "$RESOLVED" = "$REMOTE_WAN_IP" ]] && echo "  Match: YES" || echo "  Match: NO — UPDATE YOUR DDNS RECORD"
+        echo
+        echo "[ Ping tests ]"
+        printf "  %-40s " "tunnel  ($REMOTE_LAN_IP):"
+        ping -c 2 -W 2 -q "$REMOTE_LAN_IP" >/dev/null 2>&1 && echo OK || echo FAIL
+        printf "  %-40s " "remote internet ($REMOTE_WAN_IP):"
+        ping -c 2 -W 2 -q "$REMOTE_WAN_IP" >/dev/null 2>&1 && echo OK || echo FAIL
+        printf "  %-40s " "our internet (1.1.1.1):"
+        ping -c 2 -W 2 -q "1.1.1.1" >/dev/null 2>&1 && echo OK || echo FAIL
+        echo
+        echo "[ IPsec ]"
+        ipsec statusall 2>/dev/null | grep -E "(ESTABLISHED|CONNECTING|Security Associations)" | sed 's/^/  /'
+        echo
+        echo "[ Timer ]"
+        systemctl list-timers tunnel-monitor.timer --no-pager 2>/dev/null | head -3
+        echo "=============================================================="
+        echo "Commands:  tunnel-check --test-email | --reset | --tail | --history"
+        ;;
+esac
