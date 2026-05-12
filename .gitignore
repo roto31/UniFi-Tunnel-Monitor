@@ -1,3 +1,8 @@
 .DS_Store
 *.swp
 *.tmp
+
+# Swift Package Manager build artifacts
+mac/app/TunnelMonitor/.build/
+mac/app/TunnelMonitor/.swiftpm/
+mac/app/TunnelMonitor/Package.resolved

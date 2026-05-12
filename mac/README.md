@@ -78,6 +78,23 @@ its own checks — single source of truth.
 └── tunnel-monitor.30s.sh
 ```
 
+### Menu bar app (`app/`)
+
+The sanitized SwiftUI app lives in [`app/TunnelMonitor/`](app/TunnelMonitor/). It
+matches the private repo layout but uses `com.example.tunnel.monitor`,
+`com.example.tunnel-monitor` for LaunchDaemon kicks, `ROUTER_*` keys in the
+setup wizard, and reads `router_dedup` from `state.json`.
+
+- **Sync Swift from the private tree** (after you edit the main app under
+  `../../app/TunnelMonitor/`): from `Public/mac/`, run `bash sync-app-from-root.sh`
+- **Build** `.app` into the repo’s `build/dist/`: from `Public/mac/app/`, run
+  `bash build-app.sh`
+
+On first launch the app opens a **configuration sheet** for
+`/opt/tunnel-monitor/config.env` (admin password required to save). Use
+**Configure later** if you prefer `sudo vi`. To show the sheet again, use
+**Setup…** in the menu.
+
 ---
 
 ## Install

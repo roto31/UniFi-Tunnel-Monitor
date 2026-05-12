@@ -31,11 +31,14 @@ live in identifiers and paths.
 | `REPLACE_WITH_ROUTER_LAN_IP`             | LAN IP of the UniFi gateway (so the Mac can SSH to it)      | `192.168.1.1`                                    |
 | `REPLACE_WITH_ROUTER_SSH_USER`           | SSH user on the gateway                                     | `root` (UniFi default)                           |
 | `com.example.tunnel-monitor`             | Reverse-DNS bundle label for the LaunchDaemon — pick anything unique to you | `com.yourusername.tunnel-monitor` |
+| `com.example.tunnel.monitor`             | Bundle ID for the menu bar app under `mac/app/` (must differ from your daemon label string if you prefer) | `com.yourusername.tunnelmonitor` |
 
 These appear in:
 - `mac/payload/LaunchDaemons/com.example.tunnel-monitor.plist` (label inside the file **and** the filename)
 - `mac/payload/opt/tunnel-monitor/config.env.template` (`ROUTER_HOST`, `ROUTER_USER`)
 - Several `tunnel-check` and `install.sh` calls to `launchctl ... system/com.example.tunnel-monitor`
+- `mac/app/TunnelMonitor/Resources/Info.plist` — `CFBundleIdentifier`, `TMLaunchDaemonLabel`, and UI strings (`TMDedupSectionTitle`, `TMStatusBannerTitle`)
+- `mac/app/TunnelMonitor/Resources/wizard-fields.json` — setup wizard keys (`ROUTER_*`, `REPLACE_WITH_*` defaults)
 
 If you rename the plist, search-and-replace `com.example.tunnel-monitor`
 across the `mac/` subtree (3 files) before installing.

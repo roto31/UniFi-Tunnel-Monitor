@@ -1,0 +1,157 @@
+{
+  "sections": [
+    {
+      "title": "SMTP",
+      "fields": [
+        {
+          "key": "SMTP_SERVER",
+          "label": "SMTP server",
+          "secure": false,
+          "default": "REPLACE_WITH_SMTP_SERVER",
+          "help": "See PLACEHOLDERS.md — e.g. smtp.mail.me.com or smtp.gmail.com"
+        },
+        {
+          "key": "SMTP_PORT",
+          "label": "SMTP port",
+          "secure": false,
+          "default": "587",
+          "help": null
+        },
+        {
+          "key": "SMTP_USER",
+          "label": "SMTP username (email)",
+          "secure": false,
+          "default": "REPLACE_WITH_SMTP_USERNAME",
+          "help": null
+        },
+        {
+          "key": "SMTP_PASSWORD",
+          "label": "App-specific password",
+          "secure": true,
+          "default": "",
+          "help": "REPLACE_WITH_APP_SPECIFIC_PASSWORD — never your main account password."
+        },
+        {
+          "key": "ALERT_FROM",
+          "label": "From address",
+          "secure": false,
+          "default": "REPLACE_WITH_ALERT_FROM_ADDRESS",
+          "help": "Often must match SMTP_USER."
+        },
+        {
+          "key": "ALERT_TO",
+          "label": "Alert recipient",
+          "secure": false,
+          "default": "REPLACE_WITH_ALERT_TO_ADDRESS",
+          "help": null
+        }
+      ]
+    },
+    {
+      "title": "Tunnel topology",
+      "fields": [
+        {
+          "key": "REMOTE_LAN_IP",
+          "label": "Remote LAN gateway (pinged over tunnel)",
+          "secure": false,
+          "default": "REPLACE_WITH_REMOTE_LAN_GATEWAY_IP",
+          "help": null
+        },
+        {
+          "key": "REMOTE_WAN_IP",
+          "label": "Remote public IP (expected)",
+          "secure": false,
+          "default": "REPLACE_WITH_REMOTE_PUBLIC_IP",
+          "help": null
+        },
+        {
+          "key": "REMOTE_DDNS",
+          "label": "DDNS hostname",
+          "secure": false,
+          "default": "REPLACE_WITH_REMOTE_DDNS_HOSTNAME",
+          "help": null
+        }
+      ]
+    },
+    {
+      "title": "Router SSH (dedup)",
+      "fields": [
+        {
+          "key": "ROUTER_HOST",
+          "label": "Router LAN IP (SSH)",
+          "secure": false,
+          "default": "REPLACE_WITH_ROUTER_LAN_IP",
+          "help": "UniFi / gateway running the sibling monitor."
+        },
+        {
+          "key": "ROUTER_USER",
+          "label": "SSH user",
+          "secure": false,
+          "default": "REPLACE_WITH_ROUTER_SSH_USER",
+          "help": null
+        },
+        {
+          "key": "ROUTER_KEY",
+          "label": "SSH private key path",
+          "secure": false,
+          "default": "/opt/tunnel-monitor/.ssh/id_ed25519",
+          "help": null
+        },
+        {
+          "key": "ROUTER_STATE_PATH",
+          "label": "Remote state file path",
+          "secure": false,
+          "default": "/data/tunnel-monitor/state",
+          "help": null
+        }
+      ]
+    },
+    {
+      "title": "Tuning & notifications",
+      "fields": [
+        {
+          "key": "SUBJECT_PREFIX",
+          "label": "Email subject prefix",
+          "secure": false,
+          "default": "REPLACE_WITH_SUBJECT_PREFIX",
+          "help": null
+        },
+        {
+          "key": "FAILURE_THRESHOLD",
+          "label": "Consecutive failures before alert",
+          "secure": false,
+          "default": "3",
+          "help": null
+        },
+        {
+          "key": "PING_COUNT",
+          "label": "Pings per check",
+          "secure": false,
+          "default": "3",
+          "help": null
+        },
+        {
+          "key": "PING_TIMEOUT",
+          "label": "Ping timeout (seconds)",
+          "secure": false,
+          "default": "2",
+          "help": null
+        },
+        {
+          "key": "NOTIFY_SOUND_DOWN",
+          "label": "Banner sound (down)",
+          "secure": false,
+          "default": "Glass",
+          "help": null
+        },
+        {
+          "key": "NOTIFY_SOUND_RECOVERY",
+          "label": "Banner sound (recovery)",
+          "secure": false,
+          "default": "Hero",
+          "help": null
+        }
+      ]
+    }
+  ]
+}
