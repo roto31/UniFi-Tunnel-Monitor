@@ -1,8 +1,14 @@
 # Architecture
 
-This document explains how the two sides of Tunnel Monitor (UniFi gateway +
-Mac LAN client) fit together. Diagrams use Mermaid; GitHub and most modern
-Markdown renderers display them inline.
+This document explains how the monitoring stack fits together:
+
+- **UniFi gateway monitor** (systemd on local hub)
+- **Mac LAN client monitor** (launchd + optional SwiftBar)
+- **WAN Guard** (optional, dual-WAN DDNS on local hub)
+- **Site-to-site VPN** (IPsec or OpenVPN — transport is independent of monitors)
+
+Diagrams use Mermaid. See also [network-overview.md](network-overview.md) and
+[getting-started.md](getting-started.md).
 
 ---
 
@@ -23,11 +29,13 @@ flowchart TB
             SSH_R["ssh-router-state.sh<br/>(ssh + jq)"]
         end
 
-        subgraph GW["UniFi gateway"]
+        subgraph GW["UniFi gateway (local hub)"]
             UMON["monitor.sh<br/>(systemd timer, every 5 min)"]
             USTATE[("/data/tunnel-monitor/state<br/>'N:UP' or 'N:DOWN'")]
             USEND["send-email.sh<br/>(curl SMTP)"]
             UTC["tunnel-check<br/>(operator CLI)"]
+            WG["wan-guard.sh<br/>(optional, every 5 min)"]
+            WGSTATE[("wan-guard.state")]
         end
 
         NC["macOS Notification Center"]
@@ -55,6 +63,8 @@ flowchart TB
     UMON    -- "writes" --> USTATE
     UMON    -- "invokes" --> USEND
     USEND   -- "curl smtp://" --> SMTP
+    WG      -- "writes" --> WGSTATE
+    WG      -- "No-IP sync<br/>(primary WAN only)" --> PUBDNS
 
     SWIFTBAR -- "reads" --> STATEJSON
     TC       -- "reads" --> STATEJSON
@@ -74,6 +84,22 @@ Key takeaways:
   plugin and `tunnel-check` — neither runs its own checks.
 - Both sides use `curl`'s built-in SMTP client to authenticate and submit
   via STARTTLS on port 587.
+- **WAN Guard** (optional) shares SMTP config with the gateway monitor and
+  only protects **hub DDNS** when dual WAN + remote dial-in VPN — see
+  [wan-guard-openvpn-failover.md](wan-guard-openvpn-failover.md).
+
+---
+
+## 1b. VPN transport vs monitoring
+
+Monitors ping **`REMOTE_LAN_IP`** over whatever VPN UniFi routes — IPsec or
+OpenVPN. They do **not** restart VPN daemons.
+
+| Layer | Checked by | Not checked by |
+|-------|------------|----------------|
+| OpenVPN / IPsec SA | Gateway `ipsec` logs (IPsec) or UniFi UI | Mac (unless tunnel ping fails) |
+| End-to-end reachability | Both monitors (ping) | WAN Guard |
+| Hub DDNS correctness | WAN Guard | tunnel-monitor (uses **remote** DDNS) |
 
 ---
 
@@ -220,7 +246,7 @@ flowchart LR
         LAN_REMOTE --- REMOTE_DEV
     end
 
-    ROUTER_LOCAL <-. "IPsec IKEv2<br/>(site-to-site tunnel)" .-> REMOTE_GW
+    ROUTER_LOCAL <-. "Site-to-site VPN<br/>(IPsec or OpenVPN)" .-> REMOTE_GW
     ROUTER_LOCAL -. "WAN<br/>local public IP" .-> INTERNET((Internet))
     REMOTE_GW    -. "WAN<br/>REMOTE_WAN_IP" .-> INTERNET
 

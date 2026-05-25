@@ -1,0 +1,14 @@
+[Unit]
+Description=WAN Guard - DDNS Protection & CGNAT Detection
+Documentation=https://github.com/roto31
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/data/wan-guard/wan-guard.sh check
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=wan-guard
+# Do not fail the timer unit if the script exits non-zero
+SuccessExitStatus=0 1

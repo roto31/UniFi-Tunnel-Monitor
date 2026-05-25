@@ -1,0 +1,16 @@
+[Unit]
+Description=WAN Guard timer - check DDNS every 5 minutes
+Requires=wan-guard.service
+
+[Timer]
+# Run 30 seconds after boot (let network fully come up first)
+OnBootSec=30s
+# Then every 5 minutes
+OnUnitActiveSec=5min
+# Randomize start time within 30s to avoid collision with tunnel-monitor
+RandomizedDelaySec=30
+Unit=wan-guard.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

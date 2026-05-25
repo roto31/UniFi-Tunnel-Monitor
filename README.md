@@ -30,34 +30,25 @@ SwiftBar). Together they give you:
 ├── PLACEHOLDERS.md          # every placeholder + what to set it to
 ├── LICENSE                  # MIT
 ├── docs/
-│   └── architecture.md      # architecture + data-flow + topology diagrams
-├── mac/                     # macOS side (launchd + SwiftBar)
+│   ├── README.md            # documentation index
+│   ├── getting-started.md   # overview + prerequisites
+│   ├── implementation-guide.md  # end-to-end replication
+│   ├── troubleshooting.md   # beginner + advanced runbooks
+│   ├── network-overview.md  # generic topology diagrams
+│   ├── architecture.md      # monitors, dedup, state machine
+│   ├── openvpn-site-to-site-migration.md
+│   └── wan-guard-openvpn-failover.md
+├── mac/                     # macOS side (launchd + SwiftBar + app)
 │   ├── README.md
 │   ├── install.sh
-│   ├── uninstall.sh
-│   ├── verify.sh
-│   ├── CHANGELOG.md
-│   └── payload/
-│       ├── opt/tunnel-monitor/
-│       │   ├── monitor.sh
-│       │   ├── send-email.sh
-│       │   ├── notify.sh
-│       │   ├── ssh-router-state.sh
-│       │   ├── tunnel-check
-│       │   └── config.env.template
-│       ├── LaunchDaemons/
-│       │   └── com.example.tunnel-monitor.plist
-│       └── SwiftBar/
-│           └── tunnel-monitor.30s.sh
-└── unifi/                   # UniFi gateway side (Linux + systemd)
-    ├── README.md
-    ├── install.sh
-    ├── monitor.sh
-    ├── send-email.sh
-    ├── tunnel-check
-    ├── tunnel-monitor.service
-    ├── tunnel-monitor.timer
-    └── config.env.template
+│   └── payload/ ...
+├── unifi/                   # UniFi gateway side (Linux + systemd)
+│   ├── README.md
+│   ├── install.sh
+│   └── wan-guard/           # optional dual-WAN DDNS guard
+├── linux/                   # LAN-client systemd port
+├── windows/                 # LAN-client PowerShell port
+└── tray-app/                # cross-platform .NET tray reader
 ```
 
 If you only want one side, copy the appropriate subfolder into its own repo —
@@ -94,6 +85,14 @@ flowchart LR
 
 See [`docs/architecture.md`](docs/architecture.md) for the full set of
 diagrams (data flow, state machine, dedup decision tree, topology).
+
+**Additional guides:**
+
+- [Getting started](docs/getting-started.md)
+- [Implementation guide](docs/implementation-guide.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [OpenVPN migration](docs/openvpn-site-to-site-migration.md) (when IPsec is blocked)
+- [WAN Guard + dual WAN](docs/wan-guard-openvpn-failover.md)
 
 ---
 
@@ -162,8 +161,12 @@ sudo bash verify.sh
 ```
 
 Detailed instructions:
-- [`mac/README.md`](mac/README.md) — macOS install + tuning + runbook
-- [`unifi/README.md`](unifi/README.md) — UniFi install + tuning + runbook
+- [`docs/README.md`](docs/README.md) — documentation index
+- [`docs/getting-started.md`](docs/getting-started.md) — overview
+- [`docs/implementation-guide.md`](docs/implementation-guide.md) — full replication checklist
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) — runbooks
+- [`mac/README.md`](mac/README.md) — macOS install + tuning
+- [`unifi/README.md`](unifi/README.md) — UniFi gateway install + tuning
 
 ---
 
