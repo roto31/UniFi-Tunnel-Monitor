@@ -283,6 +283,15 @@ The two-monitor design covers both blind spots and also catches the case
 where the router itself is unreachable (the Mac side flags
 `ROUTER_UNREACHABLE` and takes over alerting).
 
+### Optional spoke-side monitors
+
+The same hub pattern can be mirrored at the **remote site**: gateway monitor
+on the remote UniFi device plus optional LAN Mac, with **inverted**
+`REMOTE_LAN_IP`, `REMOTE_WAN_IP`, and `REMOTE_DDNS`. WAN Guard remains
+hub-only.
+
+Generic guide: [spoke-monitoring.md](spoke-monitoring.md).
+
 ---
 
 ## 7. SSH-based dedup mechanic

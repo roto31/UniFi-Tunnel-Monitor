@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Tunnel Monitor LAN client every 5 minutes
+Requires=tunnel-monitor.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=tunnel-monitor.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

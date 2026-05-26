@@ -5,14 +5,14 @@
 # Companion to: /data/tunnel-monitor/
 #
 # Problem solved:
-#   UDR7 has WAN1=T-Mobile (CGNAT 192.168.100.x) and WAN2=primary ISP (public).
-#   If the DDNS client (UniFi built-in or Mac DUC) ever pushes the T-Mobile
-#   CGNAT IP to No-IP for hub.example.net, the remote UDM resolves
-#   an unroutable private address and the site-to-site VPN (OpenVPN or IPsec)
-#   cannot establish or flaps until DNS is corrected.
+#   Dual-WAN hubs often have a CGNAT backup WAN (192.168.x / 100.64.x) and a
+#   primary public WAN. If a DDNS client pushes the backup's private address
+#   to the hub hostname, the remote site resolves an unroutable target and the
+#   site-to-site VPN (OpenVPN or IPsec) cannot establish or flaps until DNS
+#   is corrected.
 #
 # What this script does:
-#   1. Reads the current WAN2 (primary ISP) IP from the interface
+#   1. Reads the current primary public WAN IP from WAN_GUARD_INTERFACE
 #   2. Validates it is a public/routable address (not RFC1918 / CGNAT)
 #   3. Compares against what No-IP currently has for the hostname
 #   4. Updates No-IP only if the IP is public AND has changed
@@ -50,8 +50,8 @@ SMTP_PORT="${SMTP_PORT:-587}"
 # ---------------------------------------------------------------------------
 # Required config keys (validated below)
 # ---------------------------------------------------------------------------
-# WAN_GUARD_INTERFACE      — interface for public WAN (e.g. eth4 for primary ISP WAN2)
-# WAN_GUARD_HOSTNAME       — DDNS hostname to protect (e.g. hub.example.net)
+# WAN_GUARD_INTERFACE      — interface for primary public WAN (verify with ip -4 addr)
+# WAN_GUARD_HOSTNAME       — DDNS hostname remote site dials (REPLACE_WITH_HUB_DDNS_HOSTNAME)
 # WAN_GUARD_NOIP_USER      — No-IP account username
 # WAN_GUARD_NOIP_PASS      — No-IP account password (or app token)
 # SMTP_* / ALERT_EMAIL (or ALERT_TO) — shared with /data/tunnel-monitor/config.env
@@ -59,8 +59,8 @@ SMTP_PORT="${SMTP_PORT:-587}"
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
-WAN_GUARD_INTERFACE="${WAN_GUARD_INTERFACE:-eth4}"
-WAN_GUARD_HOSTNAME="${WAN_GUARD_HOSTNAME:-hub.example.net}"
+WAN_GUARD_INTERFACE="${WAN_GUARD_INTERFACE:-}"
+WAN_GUARD_HOSTNAME="${WAN_GUARD_HOSTNAME:-}"
 WAN_GUARD_DRY_RUN="${WAN_GUARD_DRY_RUN:-false}"
 WAN_GUARD_LOG_MAX_LINES="${WAN_GUARD_LOG_MAX_LINES:-2000}"
 NOIP_UPDATE_URL="https://dynupdate.no-ip.com/nic/update"
@@ -99,6 +99,8 @@ rotate_log() {
 # ---------------------------------------------------------------------------
 validate_config() {
     local missing=()
+    [[ -z "${WAN_GUARD_INTERFACE:-}"  ]] && missing+=("WAN_GUARD_INTERFACE")
+    [[ -z "${WAN_GUARD_HOSTNAME:-}"   ]] && missing+=("WAN_GUARD_HOSTNAME")
     [[ -z "${WAN_GUARD_NOIP_USER:-}" ]] && missing+=("WAN_GUARD_NOIP_USER")
     [[ -z "${WAN_GUARD_NOIP_PASS:-}" ]] && missing+=("WAN_GUARD_NOIP_PASS")
     [[ -z "${ALERT_EMAIL:-}"          ]] && missing+=("ALERT_EMAIL|ALERT_TO")
@@ -130,7 +132,7 @@ is_private_ip() {
     [[ "${a}" -eq 172 && "${b}" -ge 16 && "${b}" -le 31 ]] && return 0
     [[ "${a}" -eq 192 && "${b}" -eq 168 ]] && return 0
 
-    # CGNAT (RFC6598) — 100.64.0.0/10 — T-Mobile, carrier-grade NAT
+    # CGNAT (RFC6598) — 100.64.0.0/10 — carrier-grade NAT
     [[ "${a}" -eq 100 && "${b}" -ge 64 && "${b}" -le 127 ]] && return 0
 
     # Loopback
@@ -336,12 +338,12 @@ run_check() {
         log_error "Cannot read IP from ${WAN_GUARD_INTERFACE} — interface down?"
         send_alert \
             "⚠ WAN Guard: ${WAN_GUARD_INTERFACE} interface unreadable" \
-            "wan-guard cannot read an IP from interface ${WAN_GUARD_INTERFACE}.\n\nThis may indicate the primary ISP WAN is down or the interface assignment changed."
+            "wan-guard cannot read an IP from interface ${WAN_GUARD_INTERFACE}.\n\nThis may indicate the primary public WAN is down or the interface assignment changed."
         write_state "last_check_status" "interface_error"
         return 1
     fi
 
-    log_info "WAN2 (${WAN_GUARD_INTERFACE}) current IP: ${current_wan_ip}"
+    log_info "WAN (${WAN_GUARD_INTERFACE}) current IP: ${current_wan_ip}"
     write_state "wan_ip" "${current_wan_ip}"
     write_state "last_check_ts" "$(date '+%Y-%m-%d %H:%M:%S')"
 
@@ -355,19 +357,19 @@ run_check() {
         # Only alert once per unique private IP (avoid spam on every 5-min check)
         if [[ "${last_alerted_cgnat}" != "${current_wan_ip}" ]]; then
             send_alert \
-                "🚨 WAN Guard: CGNAT IP on primary ISP WAN2 — DDNS blocked" \
+                "🚨 WAN Guard: CGNAT/private IP on primary WAN — DDNS blocked" \
 "CGNAT/private IP detected on ${WAN_GUARD_INTERFACE}: ${current_wan_ip}
 
-This is unexpected for primary ISP WAN2. Possible causes:
-  - primary ISP WAN is down; interface fell back to T-Mobile subnet
+This is unexpected for the primary public WAN. Possible causes:
+  - Primary WAN is down; failover assigned a CGNAT backup address
   - Interface assignment changed in UniFi
   - A firmware update reassigned WAN interfaces
 
 DDNS update for ${WAN_GUARD_HOSTNAME} has been BLOCKED to prevent
-hub.example.net from resolving to an unroutable address.
+${WAN_GUARD_HOSTNAME} from resolving to an unroutable address.
 
 Action required:
-  1. Verify ${WAN_GUARD_INTERFACE} is still the primary ISP WAN interface
+  1. Verify ${WAN_GUARD_INTERFACE} is still the primary public WAN interface
   2. Check UniFi → Internet → interface assignments
   3. Current No-IP record is preserved; verify it still has the last good IP
   4. Once public IP is restored, wan-guard will auto-update DDNS"
@@ -393,7 +395,7 @@ Action required:
     fi
 
     # --- IP mismatch — update needed ---
-    log_warn "DDNS mismatch: No-IP has '${current_noip_ip}', WAN2 is '${current_wan_ip}'"
+    log_warn "DDNS mismatch: No-IP has '${current_noip_ip}', WAN is '${current_wan_ip}'"
 
     if update_noip "${WAN_GUARD_HOSTNAME}" "${current_wan_ip}"; then
         write_state "last_good_ip" "${current_wan_ip}"
@@ -414,16 +416,16 @@ Old IP   : ${current_noip_ip:-unknown}
 New IP   : ${current_wan_ip}
 Change   : ${change_type}
 
-The remote UDM (Spoke) will pick up the new IP on the next OpenVPN
-reconnect. If Spoke-to-Hub-OpenVPN does not show Connected within 5 minutes, edit
-and re-save the tunnel on either gateway to force a hostname re-resolve."
+The remote gateway will pick up the new IP on the next OpenVPN reconnect.
+If the spoke tunnel does not show Connected within 5 minutes, edit and
+re-save the tunnel on either gateway to force a hostname re-resolve."
     else
         write_state "last_check_status" "update_failed"
         send_alert \
             "❌ WAN Guard: DDNS update FAILED for ${WAN_GUARD_HOSTNAME}" \
 "Failed to update No-IP for ${WAN_GUARD_HOSTNAME}.
 
-Current WAN2 IP : ${current_wan_ip}
+Current WAN IP  : ${current_wan_ip}
 No-IP record    : ${current_noip_ip:-unknown}
 
 Manual fix required:
@@ -465,7 +467,7 @@ cmd_status() {
     echo "--- DNS Check ---"
     local resolved
     resolved="$(get_noip_current_ip "${WAN_GUARD_HOSTNAME}" 2>/dev/null || echo "resolution failed")"
-    echo "hub.example.net → ${resolved}"
+    echo "${WAN_GUARD_HOSTNAME} → ${resolved}"
 
     echo ""
     echo "--- Interface Check ---"

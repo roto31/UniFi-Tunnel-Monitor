@@ -139,6 +139,17 @@ Simulate failure (advanced): see [troubleshooting.md](troubleshooting.md) and [m
 
 ---
 
+## Phase 6b — Spoke monitors (optional)
+
+If the **remote site** should alert independently or you want a LAN client
+vantage there, install inverted monitors on the remote gateway (and
+optionally a remote Mac). **Do not** install WAN Guard on the spoke.
+
+See [spoke-monitoring.md](spoke-monitoring.md) for generic steps and config
+inversion.
+
+---
+
 ## Phase 7 — Ongoing maintenance
 
 | Event | Action |

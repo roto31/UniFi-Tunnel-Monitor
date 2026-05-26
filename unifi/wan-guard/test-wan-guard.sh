@@ -51,7 +51,7 @@ trap 'rm -rf "${TMPDIR_TEST}"' EXIT
 
 cat > "${TMPDIR_TEST}/config.env" <<'EOF'
 WAN_GUARD_INTERFACE=lo
-WAN_GUARD_HOSTNAME=hub.example.net
+WAN_GUARD_HOSTNAME=hub.example-ddns.test
 WAN_GUARD_NOIP_USER=testuser
 WAN_GUARD_NOIP_PASS=testpass
 WAN_GUARD_DRY_RUN=true
@@ -75,15 +75,15 @@ run_wg() {
 # ---------------------------------------------------------------------------
 section "Private/CGNAT IP detection"
 
-check_private "192.168.100.104"   "T-Mobile CGNAT (root cause IP)"
+check_private "192.168.100.104"   "RFC1918 CGNAT-style backup WAN"
 check_private "192.168.0.1"      "RFC1918 192.168/16"
-check_private "192.0.2.42"        "RFC1918 10/8 (UDM WAN)"
+check_private "10.77.0.50"        "RFC1918 10/8 example"
 check_private "10.255.255.255"   "RFC1918 10/8 upper"
 check_private "172.16.0.1"       "RFC1918 172.16/12 lower"
 check_private "172.31.255.255"   "RFC1918 172.16/12 upper"
 check_private "100.64.0.1"       "CGNAT RFC6598 lower"
 check_private "100.127.255.255"  "CGNAT RFC6598 upper"
-check_private "100.100.100.100"  "CGNAT mid-range (common T-Mobile)"
+check_private "100.100.100.100"  "CGNAT mid-range example"
 check_private "127.0.0.1"        "Loopback"
 check_private "169.254.1.1"      "Link-local"
 check_private "224.0.0.1"        "Multicast"
@@ -92,11 +92,10 @@ check_private "not.an.ip"        "Invalid string (safe default = private)"
 
 section "Public IP detection"
 
-check_public "203.0.113.10"    "primary ISP WAN2 (home)"
-check_public "198.51.100.23"    "Comcast public (Spoke)"
+check_public "203.0.113.10"     "RFC5737 TEST-NET-3 (hub public example)"
+check_public "198.51.100.20"    "RFC5737 TEST-NET-2 (spoke public example)"
 check_public "8.8.8.8"          "Google DNS"
 check_public "1.1.1.1"          "Cloudflare DNS"
-check_public "184.83.68.159"    "Old primary ISP IP (historical)"
 check_public "172.15.255.255"   "Just below RFC1918 172.16 block"
 check_public "172.32.0.0"       "Just above RFC1918 172.31 block"
 check_public "100.63.255.255"   "Just below CGNAT 100.64 block"
@@ -158,7 +157,7 @@ bash -c "
 # ---------------------------------------------------------------------------
 # SECTION 4: Scenario simulations
 # ---------------------------------------------------------------------------
-section "Scenario: T-Mobile CGNAT on WAN2 (the actual outage cause)"
+section "Scenario: CGNAT on primary WAN interface"
 
 # Simulate get_wan_ip returning 192.168.100.104
 CGNAT_OUT="$(
@@ -198,7 +197,7 @@ echo "${SYNC_OUT}" | grep -Eqi "sync|no.*change|in.sync" \
     && pass "Matching IPs → in-sync, no update" \
     || fail "Expected in-sync result: ${SYNC_OUT}"
 
-section "Scenario: IP mismatch — old CGNAT in DNS, public IP on WAN2"
+section "Scenario: IP mismatch — stale private in DNS, public IP on WAN"
 
 MISMATCH_OUT="$(
     WAN_GUARD_TEST_MODE=1 \
@@ -227,7 +226,7 @@ DRYRUN_OUT="$(
     WAN_GUARD_DRY_RUN=true \
     bash -c "
         source '${WAN_GUARD}' 2>/dev/null
-        update_noip 'hub.example.net' '203.0.113.10'
+        update_noip 'hub.example-ddns.test' '203.0.113.10'
     " 2>&1
 )" || true
 

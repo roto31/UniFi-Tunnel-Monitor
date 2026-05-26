@@ -6,3 +6,7 @@
 mac/app/TunnelMonitor/.build/
 mac/app/TunnelMonitor/.swiftpm/
 mac/app/TunnelMonitor/Package.resolved
+
+# .NET tray app build artifacts
+tray-app/**/bin/
+tray-app/**/obj/
