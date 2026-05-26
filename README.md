@@ -36,6 +36,7 @@ SwiftBar). Together they give you:
 │   ├── troubleshooting.md   # beginner + advanced runbooks
 │   ├── network-overview.md  # generic topology diagrams
 │   ├── architecture.md      # monitors, dedup, state machine
+│   ├── spoke-monitoring.md  # optional remote gateway + LAN monitors
 │   ├── openvpn-site-to-site-migration.md
 │   └── wan-guard-openvpn-failover.md
 ├── mac/                     # macOS side (launchd + SwiftBar + app)
@@ -45,7 +46,10 @@ SwiftBar). Together they give you:
 ├── unifi/                   # UniFi gateway side (Linux + systemd)
 │   ├── README.md
 │   ├── install.sh
-│   └── wan-guard/           # optional dual-WAN DDNS guard
+│   └── wan-guard/           # optional dual-WAN DDNS guard (hub only)
+├── spoke/                   # optional remote-site templates + deploy scripts
+│   ├── udm/
+│   └── remote-mac/
 ├── linux/                   # LAN-client systemd port
 ├── windows/                 # LAN-client PowerShell port
 └── tray-app/                # cross-platform .NET tray reader

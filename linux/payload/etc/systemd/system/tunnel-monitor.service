@@ -1,0 +1,14 @@
+[Unit]
+Description=Tunnel Monitor - LAN client health check (Linux edition)
+Documentation=https://example.invalid/tunnel-monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tunnel-monitor
+ExecStart=/opt/tunnel-monitor/monitor.sh check
+User=root
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=120

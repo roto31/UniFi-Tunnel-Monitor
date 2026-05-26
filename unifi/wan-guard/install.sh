@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
-# install.sh — Deploy wan-guard to UDR7 persistent storage
-# Run as root on the UDR7: bash install.sh
+# install.sh — Deploy wan-guard to hub gateway persistent storage
+# Run as root on the hub gateway: bash install.sh
 # =============================================================================
 
 set -euo pipefail

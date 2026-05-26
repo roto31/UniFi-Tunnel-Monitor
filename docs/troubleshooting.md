@@ -201,7 +201,7 @@ ip -4 addr show WAN_GUARD_INTERFACE
 
 ### Advanced
 
-**Banana/hub side logs:**
+**Hub gateway logs:**
 
 ```bash
 journalctl -t openvpn -n 100 | grep -E 'Initialization|timeout|ROUTE'
@@ -222,7 +222,7 @@ Reference: [Ubiquiti OpenVPN Site-to-Site](https://help.ui.com/hc/en-us/articles
 
 ### Beginner
 
-Symptoms: tunnel worked before, remote on Comcast/Xfinity-style modem, **IPsec never comes up** despite correct UniFi settings.
+Symptoms: tunnel worked before, remote site behind **ISP modem double-NAT**, **IPsec never comes up** despite correct UniFi settings.
 
 **Fix:** Migrate to OpenVPN — [openvpn-site-to-site-migration.md](openvpn-site-to-site-migration.md). IPsec UDP 500/4500 is blocked on some firmware revisions regardless of port forwards.
 
@@ -272,7 +272,7 @@ Verify timers:
 systemctl list-timers tunnel-monitor.timer wan-guard.timer
 ```
 
-Re-check `WAN_GUARD_INTERFACE` — interface names (`eth3`, `eth4`) can change.
+Re-check `WAN_GUARD_INTERFACE` — interface names (`eth0`, `eth2`, etc.) can change after firmware updates.
 
 ---
 

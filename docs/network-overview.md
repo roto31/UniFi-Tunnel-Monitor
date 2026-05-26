@@ -103,7 +103,7 @@ Use **consistent names** across sites:
 | Site | Suggested tunnel name | Points to |
 |------|----------------------|-----------|
 | Local hub | `Remote-Site-OpenVPN` | `remote.example.com` |
-| Remote spoke | `Home-OpenVPN` | `hub.example.com` |
+| Remote spoke | `Spoke-to-Hub-OpenVPN` | `hub.example.com` |
 
 Policy routing objects should reference the **OpenVPN** tunnel name after migration off IPsec.
 

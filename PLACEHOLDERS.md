@@ -22,7 +22,29 @@ live in identifiers and paths.
 | `REPLACE_WITH_APP_SPECIFIC_PASSWORD`     | App-specific password (NOT your account password)           | (16-char string from provider)                   |
 | `REPLACE_WITH_ALERT_FROM_ADDRESS`        | "From" header on alerts (must equal `SMTP_USERNAME` on iCloud) | `you@icloud.com`                              |
 | `REPLACE_WITH_ALERT_TO_ADDRESS`          | Where alerts are sent (your own inbox, usually)             | `you@icloud.com`                                 |
-| `REPLACE_WITH_SUBJECT_PREFIX`            | Identifies which vantage point sent the alert               | `[MAC]`, `[ROUTER]`, `[HOME-STUDIO]`             |
+| `REPLACE_WITH_SUBJECT_PREFIX`            | Identifies which vantage point sent the alert               | `[MAC]`, `[ROUTER]`, `[SPOKE-MAC]`             |
+
+## 1b. Spoke-side (inverted topology)
+
+Used in [`spoke/udm/config.env.template`](spoke/udm/config.env.template) and [`spoke/remote-mac/config.env.template`](spoke/remote-mac/config.env.template). On the **spoke**, `REMOTE_*` points at the **hub**.
+
+| Placeholder                              | What to set it to                                           | Example value                                    |
+|------------------------------------------|-------------------------------------------------------------|--------------------------------------------------|
+| `REPLACE_WITH_HUB_LAN_GATEWAY_IP`        | Hub LAN gateway, reachable over the tunnel from spoke       | `192.0.2.1` (RFC 5737 doc block)                 |
+| `REPLACE_WITH_HUB_PUBLIC_IP`             | Hub primary public WAN IP                                   | `203.0.113.10`                                   |
+| `REPLACE_WITH_HUB_DDNS_HOSTNAME`         | DDNS hostname the spoke OpenVPN tunnel dials                | `hub.example-ddns.test`                          |
+| `REPLACE_WITH_SPOKE_GATEWAY_LAN_IP`      | Spoke UniFi gateway LAN IP (SSH dedup target on spoke Mac)  | `198.51.100.1`                                   |
+
+## 1c. WAN Guard (hub dual-WAN only)
+
+Append to hub `/data/tunnel-monitor/config.env` via [`unifi/wan-guard/config-additions.env`](unifi/wan-guard/config-additions.env).
+
+| Placeholder                              | What to set it to                                           | Example value                                    |
+|------------------------------------------|-------------------------------------------------------------|--------------------------------------------------|
+| `REPLACE_WITH_WAN_GUARD_INTERFACE`       | Linux interface for **primary public WAN** (`ip -4 addr`)   | `eth2`                                           |
+| `REPLACE_WITH_HUB_DDNS_HOSTNAME`         | Same hostname remote site dials for OpenVPN                 | `hub.example-ddns.test`                          |
+| `REPLACE_WITH_NOIP_USERNAME`             | DDNS provider account username                              | `your-ddns-user`                                 |
+| `REPLACE_WITH_NOIP_PASSWORD`             | DDNS provider password or API token                           | (from provider dashboard)                        |
 
 ## 2. Mac-side only
 

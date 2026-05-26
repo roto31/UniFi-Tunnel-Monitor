@@ -1,0 +1,604 @@
+#!/bin/bash
+# =============================================================================
+# Tunnel Monitor - Linux edition (generic LAN client)
+# =============================================================================
+# A SECOND vantage point for a site-to-site IPsec VPN. A sibling monitor on
+# the ROUTER watches the tunnel from the router; this one watches it from a
+# LAN client (a Linux box) so we catch the failure mode where "the router
+# thinks it's fine but no client can reach the other site."
+#
+# Behaviour:
+#   * Runs every 5 minutes via systemd timer (tunnel-monitor.timer)
+#   * Pings tunnel target, remote WAN, our internet; resolves remote DDNS
+#   * Maintains a JSON state machine in /opt/tunnel-monitor/state.json
+#   * After FAILURE_THRESHOLD consecutive failures, sends an email alert
+#   * Suppresses the email when the ROUTER has already alerted, deduping via
+#     SSH read of /data/tunnel-monitor/state on the ROUTER
+#   * Sends a recovery email when the tunnel comes back up
+#   * Always exits 0 so systemd never marks the unit failed and never
+#     throttles - internal failures are logged to /opt/tunnel-monitor/monitor.log
+#
+# DESKTOP NOTIFICATIONS:
+#   The macOS edition fires a Notification Center banner via osascript.
+#   On Linux this is intentionally NOT done from the systemd timer:
+#   notify-send requires a live DBus session and is unreliable across
+#   Wayland/X11/headless installs. notify.sh is a no-op stub that logs
+#   "NOTIFY_SKIPPED". Use email + the tray app for desktop awareness.
+# =============================================================================
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/config.env"
+STATE_FILE="${SCRIPT_DIR}/state.json"
+LOG_FILE="${SCRIPT_DIR}/monitor.log"
+LOG_MAX_BYTES=$((1 * 1024 * 1024))
+
+SEND_EMAIL_BIN="${SCRIPT_DIR}/send-email.sh"
+NOTIFY_BIN="${SCRIPT_DIR}/notify.sh"
+SSH_ROUTER_BIN="${SCRIPT_DIR}/ssh-router-state.sh"
+
+show_help() {
+    cat <<'EOF'
+monitor.sh - tunnel health check + state machine + alert decision (Linux)
+
+USAGE
+    monitor.sh                 # full check (default; called by systemd timer)
+    monitor.sh check           # alias for default
+    monitor.sh diagnose        # run checks and print diagnosis only (no state writes)
+    monitor.sh notify-test     # exercise notify.sh stub (logs only)
+    monitor.sh email-test      # send a synthetic email via send-email.sh
+    monitor.sh ssh-test        # invoke ssh-router-state.sh and print result
+    monitor.sh --help
+
+EXIT
+    Always 0 from the default check path so systemd never marks the unit
+    failed and never throttles.
+EOF
+}
+
+rotate_log_if_needed() {
+    [[ -f "${LOG_FILE}" ]] || return 0
+    local size
+    size="$(stat -c '%s' "${LOG_FILE}" 2>/dev/null || echo 0)"
+    if (( size > LOG_MAX_BYTES )); then
+        mv "${LOG_FILE}" "${LOG_FILE}.1" 2>/dev/null || true
+        : > "${LOG_FILE}"
+        chmod 0644 "${LOG_FILE}" 2>/dev/null || true
+    fi
+}
+
+log() {
+    local level="$1"; shift
+    local line
+    line="[$(date '+%Y-%m-%d %H:%M:%S')] [${level}] $*"
+    printf '%s\n' "${line}" >> "${LOG_FILE}" 2>/dev/null || true
+    printf '%s\n' "${line}"
+}
+
+log_info()  { log "INFO"  "$*"; }
+log_warn()  { log "WARN"  "$*" >&2; }
+log_error() { log "ERROR" "$*" >&2; }
+
+on_unexpected_exit() {
+    local rc=$?
+    if [[ ${rc} -ne 0 ]]; then
+        log_error "monitor.sh exited unexpectedly (rc=${rc})"
+    fi
+}
+trap on_unexpected_exit EXIT
+
+load_config() {
+    if [[ ! -f "${CONFIG_FILE}" ]]; then
+        log_error "config file missing: ${CONFIG_FILE}"
+        exit 0
+    fi
+    # shellcheck disable=SC1090
+    source "${CONFIG_FILE}"
+
+    REMOTE_LAN_IP="${REMOTE_LAN_IP:-192.0.2.1}"
+    REMOTE_WAN_IP="${REMOTE_WAN_IP:-198.51.100.1}"
+    REMOTE_DDNS="${REMOTE_DDNS:-remote.example.com}"
+    FAILURE_THRESHOLD="${FAILURE_THRESHOLD:-3}"
+    PING_COUNT="${PING_COUNT:-3}"
+    PING_TIMEOUT="${PING_TIMEOUT:-2}"
+    SUBJECT_PREFIX="${SUBJECT_PREFIX:-[LINUX]}"
+}
+
+require_cmd() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        log_error "missing dependency: $1"
+        return 1
+    fi
+}
+
+ensure_dependencies() {
+    local missing=0
+    for c in jq dig ping curl ssh; do
+        require_cmd "$c" || missing=1
+    done
+    return "${missing}"
+}
+
+OK_TUNNEL=false
+OK_REMOTE_WAN=false
+OK_OUR_INTERNET=false
+OK_DNS_MATCH=false
+
+LATENCY_TUNNEL=""
+LATENCY_REMOTE_WAN=""
+LATENCY_OUR_INTERNET=""
+DNS_RESOLVED=""
+
+# GNU ping uses -W in seconds (mac uses milliseconds).
+ping_avg_ms() {
+    local target="$1"
+    local output
+    if ! output="$(ping -c "${PING_COUNT}" -W "${PING_TIMEOUT}" -q "${target}" 2>/dev/null)"; then
+        return 1
+    fi
+    # iputils ping summary: "rtt min/avg/max/mdev = 0.123/0.456/0.789/0.012 ms"
+    local avg
+    avg="$(printf '%s' "${output}" | awk -F'/' '/rtt|round-trip/ {print $5}' | head -1)"
+    if [[ -z "${avg}" ]]; then
+        printf '0'
+    else
+        printf '%s' "${avg}"
+    fi
+}
+
+resolve_ddns() {
+    local r=""
+    r="$(dig +short +time=3 +tries=1 "${REMOTE_DDNS}" @1.1.1.1 2>/dev/null | grep -E '^[0-9]+\.' | head -1)"
+    if [[ -z "${r}" ]]; then
+        r="$(dig +short +time=3 +tries=1 "${REMOTE_DDNS}" 2>/dev/null | grep -E '^[0-9]+\.' | head -1)"
+    fi
+    if [[ -z "${r}" ]]; then
+        r="$(dig +short +time=3 +tries=1 "${REMOTE_DDNS}" @8.8.8.8 2>/dev/null | grep -E '^[0-9]+\.' | head -1)"
+    fi
+    printf '%s' "${r}"
+}
+
+run_health_checks() {
+    OK_TUNNEL=false; OK_REMOTE_WAN=false; OK_OUR_INTERNET=false; OK_DNS_MATCH=false
+    LATENCY_TUNNEL=""; LATENCY_REMOTE_WAN=""; LATENCY_OUR_INTERNET=""; DNS_RESOLVED=""
+
+    if LATENCY_TUNNEL="$(ping_avg_ms "${REMOTE_LAN_IP}")"; then OK_TUNNEL=true; fi
+    if LATENCY_REMOTE_WAN="$(ping_avg_ms "${REMOTE_WAN_IP}")"; then OK_REMOTE_WAN=true; fi
+    if LATENCY_OUR_INTERNET="$(ping_avg_ms 1.1.1.1)"; then OK_OUR_INTERNET=true; fi
+
+    DNS_RESOLVED="$(resolve_ddns)"
+    if [[ -n "${DNS_RESOLVED}" && "${DNS_RESOLVED}" == "${REMOTE_WAN_IP}" ]]; then
+        OK_DNS_MATCH=true
+    fi
+}
+
+ROUTER_REACHABLE=false
+ROUTER_STATE_LINE=""
+ROUTER_COUNT=0
+ROUTER_ALERT_STATE="UP"
+
+read_router_state() {
+    ROUTER_REACHABLE=false
+    ROUTER_STATE_LINE=""
+    ROUTER_COUNT=0
+    ROUTER_ALERT_STATE="UP"
+
+    local line
+    if line="$("${SSH_ROUTER_BIN}" 2>/dev/null)"; then
+        ROUTER_REACHABLE=true
+        ROUTER_STATE_LINE="${line}"
+        ROUTER_COUNT="${line%%:*}"
+        ROUTER_ALERT_STATE="${line##*:}"
+    fi
+}
+
+# Apply in order; first match wins. Parity with mac edition.
+diagnose() {
+    if [[ "${OK_OUR_INTERNET}" != "true" ]]; then
+        printf 'OUR_INTERNET_DOWN'
+        return
+    fi
+
+    if [[ "${OK_TUNNEL}" == "true" ]]; then
+        printf 'HEALTHY'
+        return
+    fi
+
+    if [[ "${ROUTER_REACHABLE}" != "true" ]]; then
+        printf 'ROUTER_UNREACHABLE'
+        return
+    fi
+
+    if [[ "${ROUTER_ALERT_STATE}" == "UP" && "${ROUTER_COUNT}" == "0" ]]; then
+        printf 'DISAGREEMENT'
+        return
+    fi
+
+    if [[ "${OK_DNS_MATCH}" != "true" ]]; then
+        printf 'DDNS_DRIFT'
+        return
+    fi
+
+    if [[ "${OK_REMOTE_WAN}" != "true" ]]; then
+        printf 'REMOTE_INTERNET_DOWN'
+        return
+    fi
+
+    printf 'TUNNEL_DOWN'
+}
+
+diagnosis_subject_suffix() {
+    case "$1" in
+        TUNNEL_DOWN)          printf '%s' 'TUNNEL DOWN' ;;
+        DDNS_DRIFT)           printf '%s' 'DDNS DRIFT - fix your DDNS provider record' ;;
+        REMOTE_INTERNET_DOWN) printf '%s' 'REMOTE INTERNET DOWN' ;;
+        ROUTER_UNREACHABLE)   printf '%s' 'ROUTER UNREACHABLE' ;;
+        DISAGREEMENT)         printf '%s' 'DISAGREEMENT (ROUTER says UP)' ;;
+        *)                    printf '%s' "$1" ;;
+    esac
+}
+
+PREV_FAILURE_COUNT=0
+PREV_ALERT_STATE="UP"
+PREV_LAST_ALERT_SENT_AT=""
+PREV_LAST_RECOVERY_SENT_AT=""
+
+read_prev_state() {
+    PREV_FAILURE_COUNT=0
+    PREV_ALERT_STATE="UP"
+    PREV_LAST_ALERT_SENT_AT=""
+    PREV_LAST_RECOVERY_SENT_AT=""
+
+    [[ -f "${STATE_FILE}" ]] || return 0
+    if ! jq -e . "${STATE_FILE}" >/dev/null 2>&1; then
+        log_warn "state.json unparseable; resetting in-memory state"
+        return 0
+    fi
+    PREV_FAILURE_COUNT="$(jq -r '.failure_count // 0' "${STATE_FILE}")"
+    PREV_ALERT_STATE="$(jq -r '.alert_state // "UP"' "${STATE_FILE}")"
+    PREV_LAST_ALERT_SENT_AT="$(jq -r '.last_alert_sent_at // empty' "${STATE_FILE}")"
+    PREV_LAST_RECOVERY_SENT_AT="$(jq -r '.last_recovery_sent_at // empty' "${STATE_FILE}")"
+}
+
+write_state() {
+    local failure_count="$1"
+    local alert_state="$2"
+    local diagnosis="$3"
+    local last_alert="$4"
+    local last_recovery="$5"
+    local checked_at="$6"
+
+    local tmp="${STATE_FILE}.tmp"
+
+    local tunnel_lat="${LATENCY_TUNNEL:-}"
+    local rwan_lat="${LATENCY_REMOTE_WAN:-}"
+    local our_lat="${LATENCY_OUR_INTERNET:-}"
+
+    if ! jq -n \
+        --arg ts "${checked_at}" \
+        --arg alert_state "${alert_state}" \
+        --argjson failure_count "${failure_count}" \
+        --arg tunnel_target "${REMOTE_LAN_IP}" \
+        --argjson tunnel_ok "${OK_TUNNEL}" \
+        --arg tunnel_lat "${tunnel_lat}" \
+        --arg rwan_target "${REMOTE_WAN_IP}" \
+        --argjson rwan_ok "${OK_REMOTE_WAN}" \
+        --arg rwan_lat "${rwan_lat}" \
+        --argjson our_ok "${OK_OUR_INTERNET}" \
+        --arg our_lat "${our_lat}" \
+        --arg dns_host "${REMOTE_DDNS}" \
+        --arg dns_resolved "${DNS_RESOLVED}" \
+        --arg dns_expected "${REMOTE_WAN_IP}" \
+        --argjson dns_match "${OK_DNS_MATCH}" \
+        --argjson router_reachable "${ROUTER_REACHABLE}" \
+        --arg router_state "${ROUTER_STATE_LINE}" \
+        --arg router_checked "${checked_at}" \
+        --arg last_alert "${last_alert}" \
+        --arg last_recovery "${last_recovery}" \
+        --arg diagnosis "${diagnosis}" \
+        '{
+            timestamp: $ts,
+            alert_state: $alert_state,
+            failure_count: $failure_count,
+            checks: {
+                tunnel:       { target: $tunnel_target, ok: $tunnel_ok,  latency_ms: ($tunnel_lat | tonumber? // null) },
+                remote_wan:   { target: $rwan_target,   ok: $rwan_ok,    latency_ms: ($rwan_lat   | tonumber? // null) },
+                our_internet: { target: "1.1.1.1",      ok: $our_ok,     latency_ms: ($our_lat    | tonumber? // null) },
+                dns:          { host: $dns_host, resolved: $dns_resolved, expected: $dns_expected, match: $dns_match }
+            },
+            router_dedup: {
+                reachable: $router_reachable,
+                state:     (if $router_state == "" then null else $router_state end),
+                checked_at: $router_checked
+            },
+            last_alert_sent_at:    (if $last_alert    == "" then null else $last_alert    end),
+            last_recovery_sent_at: (if $last_recovery == "" then null else $last_recovery end),
+            diagnosis: $diagnosis
+        }' > "${tmp}" 2>/dev/null; then
+        log_error "failed to render state.json"
+        rm -f "${tmp}"
+        return 1
+    fi
+
+    chmod 0644 "${tmp}" 2>/dev/null || true
+    mv "${tmp}" "${STATE_FILE}"
+}
+
+build_alert_body() {
+    local diagnosis="$1"
+    local out_file="$2"
+    local now_human; now_human="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+
+    local dns_match_str="NO"
+    [[ "${OK_DNS_MATCH}" == "true" ]] && dns_match_str="YES"
+
+    local tunnel_str rwan_str our_str
+    tunnel_str="$([[ "${OK_TUNNEL}"       == "true" ]] && echo "OK (${LATENCY_TUNNEL} ms)"      || echo "FAIL")"
+    rwan_str="$([[   "${OK_REMOTE_WAN}"   == "true" ]] && echo "OK (${LATENCY_REMOTE_WAN} ms)"  || echo "FAIL")"
+    our_str="$([[    "${OK_OUR_INTERNET}" == "true" ]] && echo "OK (${LATENCY_OUR_INTERNET} ms)" || echo "FAIL")"
+
+    local router_section
+    if [[ "${ROUTER_REACHABLE}" == "true" ]]; then
+        router_section="  Reachable:    YES
+  State line:   ${ROUTER_STATE_LINE}
+  Count:        ${ROUTER_COUNT}
+  Alert state:  ${ROUTER_ALERT_STATE}"
+    else
+        router_section="  Reachable:    NO - Linux client took over alerting"
+    fi
+
+    {
+        echo "The site-to-site VPN tunnel has been DOWN for approximately"
+        echo "$(( PREV_FAILURE_COUNT * 5 )) minutes (${PREV_FAILURE_COUNT} consecutive failed checks at 5-minute intervals)."
+        echo ""
+        echo "Diagnosis: $(diagnosis_subject_suffix "${diagnosis}")"
+        echo ""
+        echo "=============================================="
+        echo "TUNNEL DIAGNOSTICS - ${now_human}"
+        echo "=============================================="
+        echo ""
+        echo "[ Tunnel Endpoints ]"
+        echo "  Local site:                Linux LAN client @ $(hostname -s)"
+        echo "  Remote site:               LAN gateway @ ${REMOTE_LAN_IP} (over tunnel)"
+        echo "  Remote public IP expected: ${REMOTE_WAN_IP}"
+        echo "  Remote DDNS hostname:      ${REMOTE_DDNS}"
+        echo ""
+        echo "[ DNS Resolution ]"
+        echo "  ${REMOTE_DDNS} currently resolves to: ${DNS_RESOLVED:-<none>}"
+        echo "  Expected:                                       ${REMOTE_WAN_IP}"
+        echo "  Match:                                          ${dns_match_str}"
+        echo ""
+        echo "[ Reachability Tests ]"
+        echo "  Ping ${REMOTE_LAN_IP} (over tunnel):       ${tunnel_str}"
+        echo "  Ping ${REMOTE_WAN_IP} (over internet):     ${rwan_str}"
+        echo "  Ping 1.1.1.1 (sanity / our internet):      ${our_str}"
+        echo ""
+        echo "[ ROUTER Dedup State ]"
+        echo "${router_section}"
+        echo ""
+        echo "[ Linux Monitor State ]"
+        echo "  failure_count crossed threshold: ${PREV_FAILURE_COUNT} >= ${FAILURE_THRESHOLD}"
+        echo "  state.json: ${STATE_FILE}"
+        echo "  log:        ${LOG_FILE}"
+        echo ""
+        echo "[ Runbook ]"
+        case "${diagnosis}" in
+            TUNNEL_DOWN)          echo "  SSH the ROUTER, run: journalctl -fu strongswan -n 100" ;;
+            DDNS_DRIFT)           echo "  Log into your DDNS provider and update ${REMOTE_DDNS} to ${REMOTE_WAN_IP}" ;;
+            REMOTE_INTERNET_DOWN) echo "  Nothing to do - call the remote site or wait for ISP recovery." ;;
+            ROUTER_UNREACHABLE)   echo "  Verify the ROUTER is powered/connected and that SSH is reachable." ;;
+            DISAGREEMENT)         echo "  ROUTER says tunnel is UP but Linux client can't reach it. Check local routing." ;;
+        esac
+    } > "${out_file}"
+}
+
+build_recovery_body() {
+    local out_file="$1"
+    local now_human; now_human="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+
+    {
+        echo "The site-to-site VPN tunnel has RECOVERED."
+        echo ""
+        echo "=============================================="
+        echo "RECOVERY CONFIRMATION - ${now_human}"
+        echo "=============================================="
+        echo ""
+        echo "[ Reachability Tests (current) ]"
+        echo "  Ping ${REMOTE_LAN_IP} (over tunnel):       OK (${LATENCY_TUNNEL} ms)"
+        echo "  Ping ${REMOTE_WAN_IP} (over internet):     $([[ "${OK_REMOTE_WAN}"   == "true" ]] && echo "OK (${LATENCY_REMOTE_WAN} ms)" || echo "FAIL")"
+        echo "  Ping 1.1.1.1 (sanity):                     $([[ "${OK_OUR_INTERNET}" == "true" ]] && echo "OK (${LATENCY_OUR_INTERNET} ms)" || echo "FAIL")"
+        echo ""
+        echo "[ DNS Resolution ]"
+        echo "  ${REMOTE_DDNS} -> ${DNS_RESOLVED:-<none>} (expected ${REMOTE_WAN_IP})"
+        echo ""
+        if [[ -n "${PREV_LAST_ALERT_SENT_AT}" ]]; then
+            echo "Outage started at: ${PREV_LAST_ALERT_SENT_AT}"
+        fi
+        echo "Resolved at:       ${now_human}"
+    } > "${out_file}"
+}
+
+send_alert_email() {
+    local diagnosis="$1"
+    local body_file
+    body_file="$(mktemp -t tunnel-monitor-alert-body.XXXXXX)"
+    build_alert_body "${diagnosis}" "${body_file}"
+
+    local subject="Tunnel DOWN - $(diagnosis_subject_suffix "${diagnosis}")"
+    if "${SEND_EMAIL_BIN}" "${subject}" "${body_file}"; then
+        log_info "alert email sent: ${subject}"
+    else
+        log_error "alert email failed: ${subject}"
+    fi
+    rm -f "${body_file}"
+}
+
+send_recovery_email() {
+    local body_file
+    body_file="$(mktemp -t tunnel-monitor-recovery-body.XXXXXX)"
+    build_recovery_body "${body_file}"
+
+    local subject="Tunnel RECOVERED"
+    if "${SEND_EMAIL_BIN}" "${subject}" "${body_file}"; then
+        log_info "recovery email sent: ${subject}"
+    else
+        log_error "recovery email failed: ${subject}"
+    fi
+    rm -f "${body_file}"
+}
+
+# Banner notifications are not supported from the systemd timer on Linux.
+# notify.sh is a stub that logs NOTIFY_SKIPPED. Tray app is the
+# operator-facing desktop indicator.
+send_down_banner() {
+    "${NOTIFY_BIN}" "Tunnel DOWN" "Tunnel DOWN - see email and tray." 2>/dev/null || true
+}
+
+send_recovery_banner() {
+    "${NOTIFY_BIN}" "Tunnel RECOVERED" "Tunnel back up - pings flowing." 2>/dev/null || true
+}
+
+cmd_check() {
+    rotate_log_if_needed
+    load_config
+
+    if ! ensure_dependencies; then
+        log_error "missing dependencies - aborting check"
+        exit 0
+    fi
+
+    local now_iso; now_iso="$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"
+
+    read_prev_state
+    run_health_checks
+    read_router_state
+
+    local diagnosis; diagnosis="$(diagnose)"
+
+    log_info "diagnosis=${diagnosis} tunnel=${OK_TUNNEL} rwan=${OK_REMOTE_WAN} our=${OK_OUR_INTERNET} dns=${OK_DNS_MATCH} router_reachable=${ROUTER_REACHABLE} router_state=${ROUTER_STATE_LINE:-<n/a>} prev=${PREV_FAILURE_COUNT}:${PREV_ALERT_STATE}"
+
+    local new_failure_count="${PREV_FAILURE_COUNT}"
+    local new_alert_state="${PREV_ALERT_STATE}"
+    local last_alert="${PREV_LAST_ALERT_SENT_AT}"
+    local last_recovery="${PREV_LAST_RECOVERY_SENT_AT}"
+
+    case "${diagnosis}" in
+        OUR_INTERNET_DOWN)
+            log_warn "our internet is down; holding state at ${PREV_FAILURE_COUNT}:${PREV_ALERT_STATE}"
+            write_state "${new_failure_count}" "${new_alert_state}" "${diagnosis}" \
+                "${last_alert}" "${last_recovery}" "${now_iso}" || true
+            exit 0
+            ;;
+
+        HEALTHY)
+            new_failure_count=0
+            if [[ "${PREV_ALERT_STATE}" == "DOWN" ]]; then
+                log_info "tunnel recovered - sending recovery email"
+                send_recovery_email
+                send_recovery_banner
+                last_recovery="${now_iso}"
+            fi
+            new_alert_state="UP"
+            ;;
+
+        *)
+            new_failure_count=$(( PREV_FAILURE_COUNT + 1 ))
+
+            if (( new_failure_count >= FAILURE_THRESHOLD )) && [[ "${PREV_ALERT_STATE}" != "DOWN" ]]; then
+                log_warn "failure threshold crossed (${new_failure_count}/${FAILURE_THRESHOLD}) - diagnosis=${diagnosis}"
+
+                local email_skip=false
+                if [[ "${ROUTER_REACHABLE}" == "true" && "${ROUTER_ALERT_STATE}" == "DOWN" ]]; then
+                    email_skip=true
+                    log_info "suppressing duplicate email - ROUTER already alerted (${ROUTER_STATE_LINE})"
+                fi
+
+                if [[ "${email_skip}" == "false" ]]; then
+                    send_alert_email "${diagnosis}"
+                    last_alert="${now_iso}"
+                fi
+                send_down_banner
+                new_alert_state="DOWN"
+            elif [[ "${PREV_ALERT_STATE}" == "DOWN" ]]; then
+                log_info "still DOWN (failure_count=${new_failure_count}) - diagnosis=${diagnosis}, no re-alert"
+            else
+                log_info "failure ${new_failure_count}/${FAILURE_THRESHOLD} - counting, no alert yet"
+            fi
+            ;;
+    esac
+
+    write_state "${new_failure_count}" "${new_alert_state}" "${diagnosis}" \
+        "${last_alert}" "${last_recovery}" "${now_iso}" || true
+
+    exit 0
+}
+
+cmd_diagnose() {
+    load_config
+    ensure_dependencies || true
+    run_health_checks
+    read_router_state
+    local diagnosis; diagnosis="$(diagnose)"
+    cat <<EOF
+Diagnosis:        ${diagnosis}
+Tunnel ping:      ok=${OK_TUNNEL}       latency=${LATENCY_TUNNEL:-n/a} ms
+Remote WAN ping:  ok=${OK_REMOTE_WAN}   latency=${LATENCY_REMOTE_WAN:-n/a} ms
+Our internet:     ok=${OK_OUR_INTERNET} latency=${LATENCY_OUR_INTERNET:-n/a} ms
+DNS:              host=${REMOTE_DDNS} resolved=${DNS_RESOLVED:-<none>} expected=${REMOTE_WAN_IP} match=${OK_DNS_MATCH}
+ROUTER:           reachable=${ROUTER_REACHABLE} state=${ROUTER_STATE_LINE:-<n/a>}
+EOF
+    exit 0
+}
+
+cmd_notify_test() {
+    load_config
+    "${NOTIFY_BIN}" "Tunnel TEST" "Synthetic test notification from monitor.sh"
+    exit 0
+}
+
+cmd_email_test() {
+    load_config
+    local body_file; body_file="$(mktemp -t tunnel-monitor-test.XXXXXX)"
+    {
+        echo "This is a synthetic test from the Linux tunnel monitor."
+        echo ""
+        echo "Sent at: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+        echo "Host:    $(hostname -s)"
+        echo "Script:  ${BASH_SOURCE[0]}"
+        echo ""
+        echo "If you received this, SMTP plumbing is working."
+    } > "${body_file}"
+    if "${SEND_EMAIL_BIN}" "TEST - tunnel monitor plumbing check" "${body_file}"; then
+        echo "Test email submitted successfully."
+    else
+        echo "Test email submission FAILED - check ${LOG_FILE}." >&2
+    fi
+    rm -f "${body_file}"
+    exit 0
+}
+
+cmd_ssh_test() {
+    load_config
+    if line="$("${SSH_ROUTER_BIN}")"; then
+        echo "OK: ROUTER state line = ${line}"
+    else
+        echo "FAIL: ssh-router-state.sh exited non-zero (see stderr)" >&2
+        exit 1
+    fi
+    exit 0
+}
+
+case "${1:-check}" in
+    --help|-h|help) show_help; exit 0 ;;
+    check)          cmd_check ;;
+    diagnose)       cmd_diagnose ;;
+    notify-test)    cmd_notify_test ;;
+    email-test)     cmd_email_test ;;
+    ssh-test)       cmd_ssh_test ;;
+    *)
+        echo "ERROR: unknown subcommand: $1" >&2
+        show_help >&2
+        exit 1
+        ;;
+esac

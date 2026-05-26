@@ -1,259 +1,212 @@
-# WAN Guard — dual-WAN failover with OpenVPN site-to-site
+# WAN Guard + OpenVPN on dual-WAN hubs
 
-Protect **`bananaudm.onthewifi.com`** on the Banana UDR7 when **Midco (WAN2)** fails over to **T-Mobile (WAN1)**. Without this guard, DDNS can publish a **192.168.12.x** CGNAT address; Gam-and-Bee’s **`Home-OpenVPN`** then dials an unroutable target and the tunnel drops or flaps.
+Protect **`REPLACE_WITH_HUB_DDNS_HOSTNAME`** on the **local hub** when **primary public WAN** fails over to a **CGNAT backup**. Without this guard, DDNS can publish a **private** address; the spoke’s **`Spoke-to-Hub-OpenVPN`** tunnel then dials an unroutable target and drops or flaps.
 
-Companion install: [`Public/unifi/wan-guard/`](../unifi/wan-guard/). OpenVPN setup: [`openvpn-site-to-site-migration.md`](openvpn-site-to-site-migration.md).
-
----
-
-## Topology reminder
-
-| Site | Role | WAN | Address | VPN to remote |
-|------|------|-----|---------|----------------|
-| Banana (UDR7) | Hub | WAN1 | T-Mobile CGNAT `192.168.12.x` | **Backup only** — must not be published in DDNS |
-| Banana (UDR7) | Hub | WAN2 | Midco public `24.111.98.118` | **Primary** — OpenVPN listens here; DDNS must match |
-| Gam-and-Bee (UDM) | Spoke | WAN1 | `10.0.0.42` behind XB7 | Initiates to **`bananaudm.onthewifi.com:1194`** |
-
-Remote tunnel config (Gam-and-Bee):
-
-- **Name:** `Home-OpenVPN`
-- **Remote hostname:** `bananaudm.onthewifi.com` (not a raw IP — allows recovery after Midco returns)
-- **Remote networks:** `192.168.1.0/24`
+Package: [`unifi/wan-guard/`](../unifi/wan-guard/)
 
 ---
 
-## What broke under IPsec (and still breaks OpenVPN the same way)
+## Example topology (generic)
 
-When Midco went down, UniFi failed over to T-Mobile. One or more of these happened:
+| Site | Role | WAN | Example address | Notes |
+|------|------|-----|-----------------|-------|
+| Hub | Local | WAN1 (backup) | CGNAT `192.168.x.x` or `100.64.x.x` | **Must not** be published to DDNS |
+| Hub | Local | WAN2 (primary) | Public `203.0.113.10` | OpenVPN listens here; DDNS must match |
+| Spoke | Remote | WAN1 | `198.51.100.50` behind upstream modem | Initiates to **`hub.example-ddns.test:1194`** |
 
-1. **UniFi DDNS** (or another updater) wrote **`192.168.12.104`** (or similar) to **`bananaudm.onthewifi.com`**.
-2. Gam-and-Bee resolved that **private** address and tried to build a tunnel to an **unreachable** endpoint.
-3. OpenVPN on Banana may also pick **`ROUTE_GATEWAY … via 192.168.12.1 dev eth3`** during bring-up if default route prefers WAN1 — asymmetric routing and **`Inactivity timeout (--ping-restart)`** in logs.
+Remote tunnel config (spoke):
 
-OpenVPN does **not** fix bad DDNS. It still depends on **`bananaudm.onthewifi.com` → Midco public IP**.
-
-**WAN Guard’s job:** never push a private/CGNAT IP to No-IP; preserve the last good public record during outage; alert you; auto-heal when Midco returns.
-
----
-
-## What WAN Guard does (every 5 minutes)
-
-On the UDR7 (`/data/wan-guard/wan-guard.sh`):
-
-1. Read IP from **`WAN_GUARD_INTERFACE`** (default **`eth4`** = Midco WAN2).
-2. If IP is **RFC1918 / CGNAT / reserved** → **block** No-IP update, email once per bad IP, set state **`cgnat_blocked`**.
-3. If IP is **public** → compare to DNS for **`bananaudm.onthewifi.com`**.
-4. Update No-IP only when public IP **changed**; email on recovery from stale CGNAT in DNS.
-
-State file: **`/data/wan-guard/wan-guard.state`** (keys: `wan_ip`, `noip_ip`, `last_check_status`, `last_good_ip`).
+- **Name:** `Spoke-to-Hub-OpenVPN`
+- **Remote hostname:** `REPLACE_WITH_HUB_DDNS_HOSTNAME` (not a raw IP — allows recovery after primary WAN returns)
+- **Remote networks:** hub LAN, e.g. `192.0.2.0/24`
 
 ---
 
-## Install on Banana UDR7
+## Failure mode
 
-From your Mac (or on-gateway):
+When primary public WAN went down, UniFi failed over to CGNAT backup. One or more of these happened:
+
+1. **UniFi DDNS** (or another updater) wrote a **private** address to **`REPLACE_WITH_HUB_DDNS_HOSTNAME`**.
+2. Spoke resolved that address and tried to build a tunnel to an **unreachable** endpoint.
+3. OpenVPN on the hub may pick a default route via the backup WAN during bring-up — asymmetric routing and **`Inactivity timeout (--ping-restart)`** in logs.
+
+OpenVPN does **not** fix bad DDNS. It still depends on **`REPLACE_WITH_HUB_DDNS_HOSTNAME` → hub public IP**.
+
+**WAN Guard’s job:** never push a private/CGNAT IP to your DDNS provider; preserve the last good public record during outage; alert you; auto-heal when primary WAN returns.
+
+---
+
+## What WAN Guard does
+
+On the hub (`/data/wan-guard/wan-guard.sh`):
+
+1. Read IP from **`WAN_GUARD_INTERFACE`** (your primary public WAN — verify with `ip -4 addr`).
+2. If IP is **private/CGNAT** → **block** DDNS update, alert once per bad IP.
+3. If IP is **public** → compare to DNS for **`REPLACE_WITH_HUB_DDNS_HOSTNAME`**.
+4. Update DDNS only when public IP **changed**.
+5. Write **`wan-guard.state`** for correlation with tunnel-monitor.
+
+Timer: every **5 minutes** (same cadence as tunnel-monitor).
+
+---
+
+## Install on hub gateway
+
+From your workstation (VPN or LAN to hub):
 
 ```bash
-scp -r Public/unifi/wan-guard/ root@192.168.1.1:/root/wan-guard-src
-ssh root@192.168.1.1
-cd /root/wan-guard-src
-bash install.sh
+scp -r unifi/wan-guard/ root@REPLACE_WITH_HUB_GATEWAY_LAN_IP:/root/wan-guard-src
+ssh root@REPLACE_WITH_HUB_GATEWAY_LAN_IP
+cd /root/wan-guard-src && bash install.sh
 ```
 
-Then edit shared config (appended to **`/data/tunnel-monitor/config.env`** if tunnel-monitor is already installed):
+Append [`config-additions.env`](../unifi/wan-guard/config-additions.env) to `/data/tunnel-monitor/config.env` (or `/data/wan-guard/config.env`).
+
+| Key | Example | Meaning |
+|-----|---------|---------|
+| `WAN_GUARD_INTERFACE` | `eth2` | Primary **public** WAN only — verify with `ip -4 addr show eth2` |
+| `WAN_GUARD_HOSTNAME` | `hub.example-ddns.test` | Hostname spoke dials |
+| `WAN_GUARD_NOIP_USER` | `REPLACE_WITH_NOIP_USERNAME` | DDNS account |
+| `WAN_GUARD_NOIP_PASS` | `REPLACE_WITH_NOIP_PASSWORD` | DDNS password or token |
+
+Verify:
 
 ```bash
-nano /data/tunnel-monitor/config.env
-```
-
-Required keys (see [`config-additions.env`](../unifi/wan-guard/config-additions.env)):
-
-| Variable | Example | Purpose |
-|----------|---------|---------|
-| `WAN_GUARD_INTERFACE` | `eth4` | Midco WAN2 only — verify with `ip -4 addr show eth4` |
-| `WAN_GUARD_HOSTNAME` | `bananaudm.onthewifi.com` | Hostname Gam-and-Bee dials |
-| `WAN_GUARD_NOIP_USER` | `roto31` | No-IP account |
-| `WAN_GUARD_NOIP_PASS` | *(secret)* | No-IP password — never commit |
-| `ALERT_EMAIL`, `SMTP_*` | *(from tunnel-monitor)* | Alert delivery |
-
-Verify interface after firmware updates:
-
-```bash
-ip -4 addr | grep -E 'inet .* eth'
-# Midco public should appear on eth4 (adjust WAN_GUARD_INTERFACE if not)
-```
-
-Smoke test:
-
-```bash
-wan-guard test-email
 wan-guard check
 wan-guard status
-bash /root/wan-guard-src/test-wan-guard.sh   # optional unit tests
+wan-guard test-email
 ```
 
 ---
 
-## UniFi settings — keep OpenVPN stable during failover
+## UniFi settings checklist (hub)
 
-Do these **once** on Banana; they complement WAN Guard (DNS) with routing behaviour.
+Do these **once** on the hub; they complement WAN Guard (DNS) with routing behaviour.
 
-### 1. Disable UniFi DDNS on the T-Mobile WAN
+### 1. Disable UniFi DDNS on the CGNAT backup WAN
 
-**Settings → Internet → WAN1 (T-Mobile)** → turn **off** Dynamic DNS / No-IP for that interface.
+**Settings → Internet → backup WAN** → turn **off** Dynamic DNS for that interface.
 
-Only **`bananaudm.onthewifi.com`** should be updated — and **only** from WAN Guard reading **WAN2**, not from UniFi auto-update on WAN1.
+Only **`REPLACE_WITH_HUB_DDNS_HOSTNAME`** should be updated — and **only** from WAN Guard reading the **primary public** interface, not from UniFi auto-update on backup WAN.
 
-### 2. Failover policy — do not prefer T-Mobile for VPN traffic
+### 2. Failover policy — do not prefer CGNAT for VPN traffic
 
-**Settings → Internet → WAN** (Failover / Load balancing):
+**Settings → Internet → WAN failover**
 
-- **Preferred / primary WAN for general traffic:** your choice.
-- **Critical:** when Midco is **up**, ensure VPN/OpenVPN egress uses **WAN2** (Midco). After a Midco outage, when WAN2 returns, confirm OpenVPN reconnects on **`24.x`**, not **`192.168.12.x`**.
+- **Critical:** when primary public WAN is **up**, ensure VPN/OpenVPN egress uses that WAN. After an outage, when primary returns, confirm OpenVPN reconnects on the **public** path, not the CGNAT backup.
 
-If OpenVPN logs show **`ROUTE_GATEWAY … eth3`** (T-Mobile) while Midco is up, adjust failover weights so **WAN2 is default** for new sessions, or add a **static route** on Banana:
+If OpenVPN logs show **`ROUTE_GATEWAY`** via the backup interface while primary is up, adjust failover weights so **primary WAN is default** for new sessions, or add a **static route** on the hub:
 
-- Destination: **`75.73.219.205/32`** (Gam-and-Bee Comcast public)
-- Interface: **WAN2 / Midco**
+- Destination: **`REPLACE_WITH_SPOKE_PUBLIC_IP/32`**
+- Interface: **primary public WAN**
 
-(Exact UI labels vary by Network app version.)
+### 3. OpenVPN tunnel naming (both sites)
 
-### 3. OpenVPN tunnel values (unchanged by failover doc)
-
-| Side | Tunnel name | Remote hostname | Port |
+| Site | Tunnel name | Remote hostname | Port |
 |------|-------------|-----------------|------|
-| Banana | `Gam-and-Bee-OpenVPN` | `gamandbeeu.onthewifi.com` | UDP 1194 |
-| Gam-and-Bee | `Home-OpenVPN` | `bananaudm.onthewifi.com` | UDP 1194 |
+| Hub | `Hub-to-Spoke-OpenVPN` | `REPLACE_WITH_SPOKE_DDNS_HOSTNAME` | UDP 1194 |
+| Spoke | `Spoke-to-Hub-OpenVPN` | `REPLACE_WITH_HUB_DDNS_HOSTNAME` | UDP 1194 |
 
-Do **not** point **`Home-OpenVPN`** at a static IP unless you accept manual updates when Midco changes.
+Do **not** point **`Spoke-to-Hub-OpenVPN`** at a static IP unless you accept manual updates when the hub public IP changes.
 
-### 4. AppleTV policy
+### 4. Policy routing
 
-**Gam-and-Bee → Policy Engine → `AppleTV-Tunnel` → Interface:** **`Home-OpenVPN`** (not legacy IPsec **`Home-Tunnel`**).
+Update **Policy Engine** rules to use **`Spoke-to-Hub-OpenVPN`** (not legacy IPsec tunnel interfaces).
 
 ---
 
-## Timeline when Midco fails
+## Timeline when primary WAN fails
 
 ```mermaid
 sequenceDiagram
-    participant Midco as Midco_WAN2
-    participant UDR7 as Banana_UDR7
+    participant Primary as Primary_public_WAN
+    participant Hub as Hub_gateway
     participant WG as WAN_Guard
-    participant NoIP as NoIP_DNS
-    participant UDM as Gam_and_Bee_UDM
+    participant DDNS as DDNS_provider
+    participant Spoke as Spoke_gateway
 
-    Midco--xUDR7: link down
-    UDR7->>UDR7: failover to T-Mobile WAN1
-    WG->>UDR7: read eth4 IP
-    alt eth4 private or down
-        WG->>WG: BLOCK No-IP update
-        WG->>WG: alert CGNAT blocked
-        NoIP->>NoIP: keep last good 24.x record
+    Primary--xHub: link down
+    Hub->>Hub: failover to CGNAT backup
+    WG->>Hub: read WAN_GUARD_INTERFACE IP
+    alt interface private or down
+        WG->>WG: block DDNS update + alert
     end
-    UDM->>NoIP: resolve bananaudm
-    Note over UDM: Still dials last good public IP if DNS unchanged
-    Midco->>UDR7: link restored
-    WG->>UDR7: read eth4 public IP
-    WG->>NoIP: update if changed
-    UDM->>UDR7: OpenVPN reconnect to bananaudm
+    Spoke->>DDNS: resolve hub hostname
+    Note over Spoke: DNS still shows last good public IP
+    Primary->>Hub: link restored
+    WG->>Hub: read public IP
+    WG->>DDNS: update if changed
+    Spoke->>Hub: OpenVPN reconnect
 ```
 
-**Expected behaviour with WAN Guard installed:**
+| Phase | DDNS | OpenVPN | Policy-routed VLANs |
+|-------|------|---------|---------------------|
+| Primary up | hub hostname = public IP | Connected | Routes via tunnel |
+| Primary down, CGNAT active | **Unchanged** (guard blocks bad push) | May drop until primary back; DNS still valid | Kill switch — no WAN leak |
+| Primary restored | Auto-update if IP changed | Reconnect within ~1–5 min | Resumes |
 
-| Phase | DDNS | OpenVPN | AppleTV VLAN |
-|-------|------|---------|--------------|
-| Midco up | `bananaudm` = `24.x` | Connected | Routes via tunnel |
-| Midco down, T-Mobile active | **Unchanged** (guard blocks bad push) | May drop until Midco back; DNS still valid | Kill switch — no Comcast leak |
-| Midco restored | Auto-update if IP changed | Reconnect within ~1–5 min | Resumes |
-
-**Without WAN Guard:** DDNS may flip to **`192.168.12.x`** → tunnel broken until manual No-IP fix even after Midco returns.
+**Without WAN Guard:** DDNS may flip to a **private** address → tunnel broken until manual DDNS fix even after primary WAN returns.
 
 ---
 
 ## Operator runbook
 
-### Midco outage (alert: “CGNAT IP on Midco WAN2 — DDNS blocked”)
+### Primary WAN outage (alert: “CGNAT IP on WAN — DDNS blocked”)
 
-1. **Do not** manually set No-IP to T-Mobile’s address.
-2. Confirm **`wan-guard status`** shows **`cgnat_blocked`** and **`noip_ip`** still shows last public IP.
-3. **`dig +short bananaudm.onthewifi.com`** — should **not** be `192.168.12.x`.
-4. Expect **`Home-OpenVPN`** offline until Midco returns — AppleTV kill switch is intentional.
-5. Mac Studio: **`tunnel-check`** will show tunnel **DOWN**; dedup may still reach UDR7 via LAN.
+1. **Do not** manually set DDNS to the CGNAT backup address.
+2. **`wan-guard status`** — confirm block active.
+3. **`dig +short REPLACE_WITH_HUB_DDNS_HOSTNAME`** — should **not** be a private/CGNAT address.
+4. Expect **`Spoke-to-Hub-OpenVPN`** offline until primary returns — intentional kill switch behaviour.
+5. Hub Mac: **`tunnel-check`** shows tunnel **DOWN**; dedup may still reach hub gateway via LAN.
 
-### Midco restored (alert: “DDNS updated” or “CGNAT RECOVERY”)
+### Primary WAN restored (alert: “DDNS updated” or “CGNAT RECOVERY”)
 
-1. **`wan-guard status`** → **`in_sync`** or **`updated`**.
-2. **`dig +short bananaudm.onthewifi.com`** → current Midco public.
-3. UniFi both sites: **`Gam-and-Bee-OpenVPN`** / **`Home-OpenVPN`** → **Connected**.
-4. **`ping 192.168.0.1`** from Mac Studio; **`sudo tunnel-check --check-now`**.
+1. **`wan-guard status`**
+2. **`dig +short REPLACE_WITH_HUB_DDNS_HOSTNAME`** → current public IP.
+3. UniFi both sites: **`Hub-to-Spoke-OpenVPN`** / **`Spoke-to-Hub-OpenVPN`** → **Connected**.
+4. **`ping REPLACE_WITH_SPOKE_LAN_GATEWAY_IP`** from hub LAN; **`sudo tunnel-check --check-now`**.
 
-### OpenVPN up but UI “Offline” / ping-restart in logs
+### OpenVPN flaps after failover
 
-1. Check **`journalctl -t openvpn -n 50`** on Banana for **`Inactivity timeout`** vs **`Initialization Sequence Completed`**.
-2. Confirm **`ROUTE_GATEWAY`** is not stuck on **`eth3`** after Midco is back.
-3. Toggle tunnel off/on in UniFi or **`service openvpn reload`** on Banana (last resort).
+1. Check **`journalctl -t openvpn -n 50`** on hub for **`Inactivity timeout`** vs **`Initialization Sequence Completed`**.
+2. Confirm **`ROUTE_GATEWAY`** is not stuck on backup WAN after primary is back.
+3. Toggle tunnel off/on in UniFi or **`service openvpn reload`** on hub (last resort).
 
-### After UDR7 firmware update
-
-Re-run if needed:
+### After hub firmware update
 
 ```bash
-cd /root/wan-guard-src && bash install.sh
-wan-guard status   # verify eth4 still Midco
-systemctl status wan-guard.timer
+wan-guard status   # verify WAN_GUARD_INTERFACE still primary public WAN
+systemctl list-timers wan-guard.timer
 ```
 
 ---
 
-## Integration with tunnel-monitor
+## Coexistence with tunnel-monitor
 
-| Component | Location | Role |
-|-----------|----------|------|
-| Mac monitor | `/opt/tunnel-monitor/` | Pings **`192.168.0.1`**, emails from Studio |
-| UDR7 monitor | `/data/tunnel-monitor/` | Pings remote LAN, dedup state **`N:UP`** |
-| WAN Guard | `/data/wan-guard/` | Protects **`bananaudm`** DDNS only |
+| Component | Path | Role |
+|-----------|------|------|
+| Mac monitor | `/opt/tunnel-monitor/` | Pings remote LAN from hub LAN client |
+| Hub gateway monitor | `/data/tunnel-monitor/` | Pings remote LAN, dedup state |
+| WAN Guard | `/data/wan-guard/` | Protects **hub DDNS** only |
 
-WAN Guard does **not** restart OpenVPN. Correct DDNS + UniFi failover policy lets OpenVPN reconnect on its own.
+WAN Guard does **not** replace tunnel-monitor. Install both on dual-WAN **hub** gateways running OpenVPN site-to-site.
 
-Optional correlation: compare **`/data/wan-guard/wan-guard.state`** `last_check_status` with tunnel-monitor logs during outages.
+Optional **spoke-side** monitors: [`spoke/`](../spoke/README.md).
 
 ---
 
-## Testing (safe)
-
-Dry run (no No-IP writes):
+## Dry run / testing
 
 ```bash
-# On UDR7, temporarily in config.env:
+# On hub, temporarily in config.env:
 WAN_GUARD_DRY_RUN="true"
 wan-guard check
 ```
 
-Run packaged tests on a workstation:
+Unit tests (no network):
 
 ```bash
-bash Public/unifi/wan-guard/test-wan-guard.sh
+bash unifi/wan-guard/test-wan-guard.sh
 ```
 
-Simulate CGNAT block logic: tests assert **`192.168.12.104`** triggers block and **`24.111.98.118`** sync path works.
-
----
-
-## Rollback
-
-```bash
-systemctl disable --now wan-guard.timer
-rm -f /etc/systemd/system/wan-guard.{service,timer}
-systemctl daemon-reload
-```
-
-Remove **`WAN_GUARD_*`** keys from **`/data/tunnel-monitor/config.env`** if desired. Re-enable UniFi DDNS only if you accept the CGNAT risk.
-
----
-
-## References
-
-- Ubiquiti OpenVPN S2S: [Help Center](https://help.ui.com/hc/en-us/articles/12646699585047-UniFi-Gateway-OpenVPN-Site-to-Site)
-- No-IP update API responses: [No-IP integrate docs](https://www.noip.com/integrate/response)
-- Local OpenVPN migration: [`openvpn-site-to-site-migration.md`](openvpn-site-to-site-migration.md)
+Simulate CGNAT block logic: tests use RFC 5737 / CGNAT example addresses only.

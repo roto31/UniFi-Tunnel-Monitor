@@ -24,6 +24,8 @@ All examples use **placeholders**. Configure real values via [`PLACEHOLDERS.md`]
 | Document | Description |
 |----------|-------------|
 | [architecture.md](architecture.md) | Components, dedup, state machine, diagrams |
+| [spoke-monitoring.md](spoke-monitoring.md) | Optional remote gateway + LAN monitors |
+| [../spoke/README.md](../spoke/README.md) | Spoke config templates + deploy scripts |
 | [../mac/README.md](../mac/README.md) | Mac / LAN-client install + CLI |
 | [../unifi/README.md](../unifi/README.md) | UniFi gateway install + CLI |
 

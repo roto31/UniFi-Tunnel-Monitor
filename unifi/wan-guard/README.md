@@ -1,22 +1,22 @@
-# WAN Guard (UDR7)
+# WAN Guard (dual-WAN hub)
 
-Protects **`bananaudm.onthewifi.com`** from being updated with a **T-Mobile CGNAT** (`192.168.12.x`) address when Midco WAN2 fails — which would break **OpenVPN site-to-site** (`Home-OpenVPN` / `Gam-and-Bee-OpenVPN`) the same way it broke IPsec.
+Protects **`REPLACE_WITH_HUB_DDNS_HOSTNAME`** from being updated with a **CGNAT backup WAN** address when the **primary public WAN** fails — which breaks **OpenVPN site-to-site** the same way it broke IPsec.
 
-**Full operator guide:** [`Public/docs/wan-guard-openvpn-failover.md`](../../docs/wan-guard-openvpn-failover.md)
+**Full operator guide:** [`docs/wan-guard-openvpn-failover.md`](../../docs/wan-guard-openvpn-failover.md)
 
-## Quick install (Banana UDR7)
+## Quick install (hub gateway)
 
 ```bash
-scp -r Public/unifi/wan-guard/ root@192.168.1.1:/root/wan-guard-src
-ssh root@192.168.1.1 'cd /root/wan-guard-src && bash install.sh'
-# Edit /data/tunnel-monitor/config.env → set WAN_GUARD_NOIP_PASS
+scp -r unifi/wan-guard/ root@REPLACE_WITH_HUB_GATEWAY_LAN_IP:/root/wan-guard-src
+ssh root@REPLACE_WITH_HUB_GATEWAY_LAN_IP 'cd /root/wan-guard-src && bash install.sh'
+# Edit /data/tunnel-monitor/config.env → WAN_GUARD_* + No-IP credentials
 wan-guard test-email && wan-guard check && wan-guard status
 ```
 
 ## Files
 
-| Path on UDR7 | Purpose |
-|--------------|---------|
+| Path on gateway | Purpose |
+|-----------------|---------|
 | `/data/wan-guard/wan-guard.sh` | Main checker |
 | `/data/wan-guard/wan-guard.state` | Last IP / status |
 | `/data/wan-guard/wan-guard.log` | Rolling log |

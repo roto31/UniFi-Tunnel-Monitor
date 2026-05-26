@@ -12,7 +12,7 @@ Overview for UniFi operators who want **redundant VPN health monitoring** betwee
 
 3. **WAN Guard** (optional) — runs on the **local hub** when you have **dual WAN** and site-to-site VPN dialed via **DDNS**. Prevents a backup CGNAT WAN from poisoning your public hostname.
 
-4. **OpenVPN migration guide** — when an ISP modem (e.g. Comcast XB7 class) blocks **IPsec UDP 500/4500** but UDP still works elsewhere.
+4. **OpenVPN migration guide** — when an upstream ISP modem blocks **IPsec UDP 500/4500** but UDP still works elsewhere.
 
 ---
 

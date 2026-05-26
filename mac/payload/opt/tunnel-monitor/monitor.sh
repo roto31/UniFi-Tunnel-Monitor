@@ -437,7 +437,7 @@ build_alert_body() {
         case "${diagnosis}" in
             TUNNEL_DOWN)          echo "  SSH the ROUTER (<router_user>@<router_host>), run: journalctl -fu strongswan -n 100" ;;
             DDNS_DRIFT)           echo "  Log into https://my.your-ddns-provider.example.com and update remote.example.com to ${REMOTE_WAN_IP}" ;;
-            REMOTE_INTERNET_DOWN) echo "  Nothing to do — call the remote site or wait for Comcast to restore." ;;
+            REMOTE_INTERNET_DOWN) echo "  Nothing to do — call the remote site or wait for their ISP to restore." ;;
             ROUTER_UNREACHABLE)     echo "  Verify the ROUTER is powered/connected. Console at https://<router_host>" ;;
             DISAGREEMENT)         echo "  ROUTER says tunnel is UP but Mac can't reach it. Check Mac routing / restart networking." ;;
         esac
