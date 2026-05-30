@@ -80,8 +80,10 @@ Key takeaways:
   on its own. The state file is its only "API" to anyone else.
 - The **Mac side** does its own pings *and* reads the gateway's state file
   over SSH to decide whether to suppress its email (dedup).
-- `state.json` on the Mac is the single source of truth for the SwiftBar
-  plugin and `tunnel-check` — neither runs its own checks.
+- `state.json` on the Mac is the single source of truth for **Tunnel Monitor.app**,
+  the SwiftBar plugin, and `tunnel-check` — none of them run their own checks.
+- **GUI architecture** (menu bar app, Configuration window, alert flow):
+  [tunnel-monitor/02-architecture.md](tunnel-monitor/02-architecture.md).
 - Both sides use `curl`'s built-in SMTP client to authenticate and submit
   via STARTTLS on port 587.
 - **WAN Guard** (optional) shares SMTP config with the gateway monitor and

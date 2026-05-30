@@ -7,6 +7,9 @@ and exposes status to a SwiftBar menu-bar plugin and a `tunnel-check` CLI.
 This is the **Mac side**. The matching UniFi-gateway side lives in
 [`../unifi/`](../unifi/).
 
+**Tunnel Monitor.app (GUI):** full guide with screenshots —
+[`../docs/tunnel-monitor/`](../docs/tunnel-monitor/README.md).
+
 ---
 
 ## What it does
