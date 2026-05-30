@@ -23,6 +23,7 @@ All examples use **placeholders**. Configure real values via [`PLACEHOLDERS.md`]
 
 | Document | Description |
 |----------|-------------|
+| **[tunnel-monitor/](tunnel-monitor/README.md)** | **Tunnel Monitor.app** — overview, architecture, setup (screenshots), usage, troubleshooting |
 | [architecture.md](architecture.md) | Components, dedup, state machine, diagrams |
 | [spoke-monitoring.md](spoke-monitoring.md) | Optional remote gateway + LAN monitors |
 | [../spoke/README.md](../spoke/README.md) | Spoke config templates + deploy scripts |
