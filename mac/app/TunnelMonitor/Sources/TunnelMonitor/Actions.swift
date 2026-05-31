@@ -61,10 +61,49 @@ enum Actions {
         return code == 0 ? "OK\n\(out)" : "SSH test failed (\(code)):\n\(out)"
     }
 
+    /// Opens Terminal without blocking the main thread (required for MenuBarExtra actions).
     static func openInTerminal(_ command: String) {
-        let escaped = command.replacingOccurrences(of: "\"", with: "\\\"")
-        let script = "tell application \"Terminal\" to do script \"\(escaped)\"\ntell application \"Terminal\" to activate"
-        run("/usr/bin/osascript", args: ["-e", script])
+        Task { @MainActor in
+            activateForUserAction()
+        }
+        Task.detached(priority: .userInitiated) {
+            let escaped = escapeForAppleScript(command)
+            let script = """
+            tell application "Terminal"
+                activate
+                do script "\(escaped)"
+            end tell
+            """
+            launchDetached(launchPath: "/usr/bin/osascript", args: ["-e", script])
+        }
+    }
+
+    @MainActor
+    private static func activateForUserAction() {
+        let shell = TunnelMonitorAppDelegate.sharedShell
+        let restoreAccessory = shell?.showDockIcon == false
+        if restoreAccessory {
+            NSApp.setActivationPolicy(.regular)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        if restoreAccessory {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                shell?.applyActivationPolicy()
+            }
+        }
+    }
+
+    private static func escapeForAppleScript(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+
+    private static func launchDetached(launchPath: String, args: [String]) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: launchPath)
+        process.arguments = args
+        try? process.run()
     }
 
     @MainActor
@@ -77,13 +116,14 @@ enum Actions {
         NSWorkspace.shared.selectFile(MonitorPaths.stateFile, inFileViewerRootedAtPath: MonitorPaths.installDir)
     }
 
-    static func editConfig() {
-        // config.env is 0600 root:wheel; open in Terminal with sudo so the user is prompted.
+    static func editConfig() -> String {
         openInTerminal("sudo -e \(MonitorPaths.config)")
+        return "Opening Terminal to edit config.env (admin password required)."
     }
 
-    static func tailLog() {
+    static func tailLog() -> String {
         openInTerminal("tail -f \(MonitorPaths.logFile)")
+        return "Opening log tail in Terminal."
     }
 
     @MainActor

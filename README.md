@@ -10,7 +10,9 @@ SwiftBar). Together they give you:
 - **Email alerts** via authenticated SMTP submission (works with any provider
   that supports STARTTLS on 587; tested with iCloud).
 - **Native macOS banner alerts** in addition to email (Mac side only).
-- **A SwiftBar menu-bar status indicator** that reads the daemon's state file
+- **Tunnel Monitor.app** — native macOS menu bar GUI (reads `state.json`, setup
+  wizard, operator actions). See [`docs/tunnel-monitor/`](docs/tunnel-monitor/README.md).
+- **A SwiftBar menu-bar status indicator** (optional) that reads the same state file
   (Mac side only).
 - **De-duplicated alerting** — when the router has already alerted, the Mac
   suppresses its email but still updates the menu bar (and vice-versa is not
@@ -31,6 +33,7 @@ SwiftBar). Together they give you:
 ├── LICENSE                  # MIT
 ├── docs/
 │   ├── README.md            # documentation index
+│   ├── tunnel-monitor/      # Tunnel Monitor.app — full GUI guide + screenshots
 │   ├── getting-started.md   # overview + prerequisites
 │   ├── implementation-guide.md  # end-to-end replication
 │   ├── troubleshooting.md   # beginner + advanced runbooks
@@ -39,8 +42,9 @@ SwiftBar). Together they give you:
 │   ├── spoke-monitoring.md  # optional remote gateway + LAN monitors
 │   ├── openvpn-site-to-site-migration.md
 │   └── wan-guard-openvpn-failover.md
-├── mac/                     # macOS side (launchd + SwiftBar + app)
+├── mac/                     # macOS side (launchd + SwiftBar + Tunnel Monitor.app)
 │   ├── README.md
+│   ├── app/TunnelMonitor/   # SwiftUI menu bar app source (SPM)
 │   ├── install.sh
 │   └── payload/ ...
 ├── unifi/                   # UniFi gateway side (Linux + systemd)

@@ -10,7 +10,7 @@ final class LoginItem: ObservableObject {
     private let service = SMAppService.mainApp
 
     init() {
-        refresh()
+        Task { refresh() }
     }
 
     func refresh() {
@@ -18,16 +18,18 @@ final class LoginItem: ObservableObject {
     }
 
     func toggle() {
-        do {
-            if service.status == .enabled {
-                try service.unregister()
-            } else {
-                try service.register()
+        Task {
+            do {
+                if service.status == .enabled {
+                    try await service.unregister()
+                } else {
+                    try await service.register()
+                }
+                lastError = nil
+            } catch {
+                lastError = error.localizedDescription
             }
-            lastError = nil
-        } catch {
-            lastError = error.localizedDescription
+            refresh()
         }
-        refresh()
     }
 }

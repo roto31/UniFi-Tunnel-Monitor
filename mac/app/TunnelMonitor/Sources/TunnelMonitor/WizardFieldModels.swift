@@ -37,7 +37,10 @@ enum WizardFieldLoader {
 
     private static func fallbackCatalog() -> WizardCatalog {
         let data = Data(fallbackJSON.utf8)
-        return (try? JSONDecoder().decode(WizardCatalog.self, from: data))!
+        if let cat = try? JSONDecoder().decode(WizardCatalog.self, from: data) {
+            return cat
+        }
+        return WizardCatalog(sections: [])
     }
 
     private static let fallbackJSON = """

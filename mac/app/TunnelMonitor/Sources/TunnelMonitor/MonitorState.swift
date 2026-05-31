@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import AppKit
 
 struct DedupBlock: Decodable, Equatable {
     let reachable: Bool
@@ -8,19 +9,19 @@ struct DedupBlock: Decodable, Equatable {
     let checked_at: String?
 }
 
-struct Snapshot: Decodable {
-    struct PingCheck: Decodable {
+struct Snapshot: Decodable, Equatable {
+    struct PingCheck: Decodable, Equatable {
         let target: String?
         let ok: Bool?
         let latency_ms: Double?
     }
-    struct DNSCheck: Decodable {
+    struct DNSCheck: Decodable, Equatable {
         let host: String?
         let resolved: String?
         let expected: String?
         let match: Bool?
     }
-    struct Checks: Decodable {
+    struct Checks: Decodable, Equatable {
         let tunnel: PingCheck
         let remote_wan: PingCheck
         let our_internet: PingCheck
@@ -35,11 +36,12 @@ struct Snapshot: Decodable {
     let last_alert_sent_at: String?
     let last_recovery_sent_at: String?
     let diagnosis: String
+    let down_since: String?
 
     enum CodingKeys: String, CodingKey {
         case timestamp, alert_state, failure_count, checks
         case udr7_dedup, router_dedup
-        case last_alert_sent_at, last_recovery_sent_at, diagnosis
+        case last_alert_sent_at, last_recovery_sent_at, diagnosis, down_since
     }
 
     init(from decoder: Decoder) throws {
@@ -51,6 +53,7 @@ struct Snapshot: Decodable {
         last_alert_sent_at = try c.decodeIfPresent(String.self, forKey: .last_alert_sent_at)
         last_recovery_sent_at = try c.decodeIfPresent(String.self, forKey: .last_recovery_sent_at)
         diagnosis = try c.decode(String.self, forKey: .diagnosis)
+        down_since = try c.decodeIfPresent(String.self, forKey: .down_since)
 
         if let u = try c.decodeIfPresent(DedupBlock.self, forKey: .udr7_dedup) {
             dedup = u
@@ -69,55 +72,87 @@ enum MonitorPaths {
     static let installDir = "/opt/tunnel-monitor"
 }
 
+private struct ReloadPayload {
+    let snapshot: Snapshot?
+    let error: String?
+    let presentation: StatusPresentation
+    let widgetSnapshot: WidgetStatusSnapshot?
+}
+
 @MainActor
 final class MonitorState: ObservableObject {
 
     @Published private(set) var snapshot: Snapshot?
     @Published private(set) var lastLoadError: String?
     @Published private(set) var lastReadAt: Date = .distantPast
+    @Published private(set) var presentation: StatusPresentation = .unavailable(error: nil)
 
     private var timer: Timer?
+    private var refreshInterval: TimeInterval = AppPreferences.refreshIntervalSeconds
+    private var reloadInFlight = false
 
     init() {
         reload()
-        timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        restartTimer()
+    }
+
+    func setRefreshInterval(_ interval: TimeInterval) {
+        refreshInterval = max(5, interval)
+        restartTimer()
+    }
+
+    private func restartTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.reload() }
         }
     }
 
     func reload() {
-        let url = URL(fileURLWithPath: MonitorPaths.stateFile)
+        guard !reloadInFlight else { return }
+        reloadInFlight = true
+        let statePath = MonitorPaths.stateFile
+        let syncWidget = AppPreferences.widgetSyncEnabled
+
+        Task.detached(priority: .utility) {
+            let payload = Self.loadPayload(from: statePath, syncWidget: syncWidget)
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.apply(payload)
+                self.reloadInFlight = false
+            }
+        }
+    }
+
+    private func apply(_ payload: ReloadPayload) {
+        if snapshot != payload.snapshot { snapshot = payload.snapshot }
+        if lastLoadError != payload.error { lastLoadError = payload.error }
+        if presentation != payload.presentation { presentation = payload.presentation }
+        lastReadAt = Date()
+        if let widget = payload.widgetSnapshot {
+            AppGroupSync.writeWidgetSnapshot(widget)
+        }
+    }
+
+    nonisolated private static func loadPayload(from path: String, syncWidget: Bool) -> ReloadPayload {
+        let url = URL(fileURLWithPath: path)
         do {
-            let data = try Data(contentsOf: url)
+            let data = try Data(contentsOf: url, options: [.uncached, .mappedIfSafe])
             let decoded = try JSONDecoder().decode(Snapshot.self, from: data)
-            snapshot = decoded
-            lastLoadError = nil
-            lastReadAt = Date()
+            let presentation = StatusPresentation.from(snapshot: decoded)
+            let widget: WidgetStatusSnapshot? = syncWidget
+                ? WidgetStatusSnapshot.from(presentation: presentation, lastCheck: decoded.timestamp)
+                : nil
+            return ReloadPayload(snapshot: decoded, error: nil, presentation: presentation, widgetSnapshot: widget)
         } catch {
-            snapshot = nil
-            lastLoadError = error.localizedDescription
-            lastReadAt = Date()
+            let presentation = StatusPresentation.unavailable(error: error.localizedDescription)
+            return ReloadPayload(snapshot: nil, error: error.localizedDescription, presentation: presentation, widgetSnapshot: nil)
         }
     }
 
     var alertState: String { snapshot?.alert_state ?? "UNKNOWN" }
     var diagnosis: String  { snapshot?.diagnosis ?? "NO_STATE_FILE" }
+    var trafficLight: TrafficLight { presentation.trafficLight }
 
-    var menuBarSymbol: String {
-        switch alertState {
-        case "UP":   return "lock.shield.fill"
-        case "DOWN": return "exclamationmark.shield.fill"
-        default:     return "questionmark.diamond.fill"
-        }
-    }
-
-    var menuBarColor: Color {
-        switch alertState {
-        case "UP":   return .green
-        case "DOWN": return .red
-        default:     return .yellow
-        }
-    }
-
-    var headerColor: Color { menuBarColor }
+    var menuBarColor: Color { trafficLight.color }
 }
