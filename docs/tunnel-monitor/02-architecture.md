@@ -30,7 +30,7 @@ flowchart TB
     actions[Actions CLI and osascript]
     menuBar --> monitorState
     dashboard --> monitorState
-    setupWin --> configEnv[/opt/tunnel-monitor/config.env/]
+    setupWin --> configEnv["config.env"]
     menuBar --> actions
   end
 
@@ -39,7 +39,7 @@ flowchart TB
   end
 
   subgraph hub [Local UniFi gateway optional]
-    udr7State[/data/tunnel-monitor/state]
+    udr7State["gateway dedup state"]
   end
 
   SMTP[SMTP provider]
