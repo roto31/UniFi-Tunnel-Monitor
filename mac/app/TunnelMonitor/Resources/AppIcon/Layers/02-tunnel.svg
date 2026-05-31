@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="none">
+  <!-- Tunnel mouth, bold, no shadows -->
+  <path fill="#1B3D4A"
+        d="M 180 720 C 180 420 320 260 512 260 C 704 260 844 420 844 720 L 844 820 L 180 820 Z"/>
+  <ellipse cx="512" cy="300" rx="268" ry="118" fill="#0F2833"/>
+  <path fill="#2A5F6E" fill-opacity="0.55"
+        d="M 240 700 C 260 500 360 360 512 360 C 664 360 764 500 784 700 Z"/>
+</svg>

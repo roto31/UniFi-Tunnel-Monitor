@@ -1,0 +1,182 @@
+#!/bin/bash
+# =============================================================================
+# postinstall — finalize the install of Tunnel Monitor
+# =============================================================================
+# Runs as root after the .pkg lays down files. Responsibilities:
+#   1. Restore stashed config.env / state.json / .ssh from preinstall
+#   2. Enforce permissions on /opt/tunnel-monitor/*
+#   3. Initialize state.json if missing
+#   4. Generate SSH key for UDR7 dedup if missing
+#   5. Symlink /usr/local/bin/tunnel-check
+#   6. Deploy SwiftBar plugin to the console user's plugins folder
+#   7. Bootstrap + enable the LaunchDaemon
+# =============================================================================
+
+set -euo pipefail
+
+LOG="/var/log/tunnel-monitor-install.log"
+log() { printf '[%s postinstall] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${LOG}" >&2; }
+
+INSTALL_DIR="/opt/tunnel-monitor"
+SSH_DIR="${INSTALL_DIR}/.ssh"
+SSH_KEY="${SSH_DIR}/id_ed25519"
+SSH_PUB="${SSH_KEY}.pub"
+LAUNCHD_LABEL="com.ruter.tunnel-monitor"
+PLIST_DEST="/Library/LaunchDaemons/${LAUNCHD_LABEL}.plist"
+SYMLINK_DEST="/usr/local/bin/tunnel-check"
+STASH="/var/tmp/tunnel-monitor-stash"
+APP_SUPPORT="/Library/Application Support/Tunnel Monitor"
+
+log "Begin postinstall."
+
+# -----------------------------------------------------------------------------
+# Step 1 — restore preserved state
+# -----------------------------------------------------------------------------
+if [[ -d "${STASH}" ]]; then
+    for f in config.env state.json monitor.log .ssh; do
+        if [[ -e "${STASH}/${f}" ]]; then
+            rm -rf "${INSTALL_DIR}/${f}" 2>/dev/null || true
+            cp -RP "${STASH}/${f}" "${INSTALL_DIR}/${f}"
+            log "Restored ${INSTALL_DIR}/${f}"
+        fi
+    done
+    rm -rf "${STASH}"
+fi
+
+# -----------------------------------------------------------------------------
+# Step 2 — enforce permissions
+# -----------------------------------------------------------------------------
+chown -R root:wheel "${INSTALL_DIR}"
+chmod 0755 "${INSTALL_DIR}"
+for f in monitor.sh notify.sh tunnel-check; do
+    [[ -f "${INSTALL_DIR}/${f}" ]] && chmod 0755 "${INSTALL_DIR}/${f}"
+done
+for f in send-email.sh ssh-udr7-state.sh; do
+    [[ -f "${INSTALL_DIR}/${f}" ]] && chmod 0750 "${INSTALL_DIR}/${f}"
+done
+[[ -f "${INSTALL_DIR}/config.env.template" ]] && chmod 0644 "${INSTALL_DIR}/config.env.template"
+
+# Seed config.env from template if absent (after restore).
+if [[ ! -f "${INSTALL_DIR}/config.env" && -f "${INSTALL_DIR}/config.env.template" ]]; then
+    install -m 0600 -o root -g wheel \
+        "${INSTALL_DIR}/config.env.template" \
+        "${INSTALL_DIR}/config.env"
+    log "Seeded config.env from template."
+else
+    chmod 0600 "${INSTALL_DIR}/config.env" 2>/dev/null || true
+    chown root:wheel "${INSTALL_DIR}/config.env" 2>/dev/null || true
+fi
+
+# -----------------------------------------------------------------------------
+# Step 3 — initialize state.json if missing
+# -----------------------------------------------------------------------------
+if [[ ! -f "${INSTALL_DIR}/state.json" ]]; then
+    NOW="$(date -Iseconds 2>/dev/null || date '+%Y-%m-%dT%H:%M:%S%z')"
+    cat > "${INSTALL_DIR}/state.json.tmp" <<JSON
+{
+  "timestamp": "${NOW}",
+  "alert_state": "UP",
+  "failure_count": 0,
+  "checks": {
+    "tunnel":       { "target": null, "ok": null, "latency_ms": null },
+    "remote_wan":   { "target": null, "ok": null, "latency_ms": null },
+    "our_internet": { "target": null, "ok": null, "latency_ms": null },
+    "dns":          { "host": null, "resolved": null, "expected": null, "match": null }
+  },
+  "udr7_dedup":   { "reachable": false, "state": null, "checked_at": "${NOW}" },
+  "last_alert_sent_at":    null,
+  "last_recovery_sent_at": null,
+  "diagnosis": "PENDING_FIRST_RUN"
+}
+JSON
+    mv "${INSTALL_DIR}/state.json.tmp" "${INSTALL_DIR}/state.json"
+    log "Initialized state.json."
+fi
+chmod 0644 "${INSTALL_DIR}/state.json"
+chown root:wheel "${INSTALL_DIR}/state.json"
+
+# monitor.log readable by user app for tailing.
+touch "${INSTALL_DIR}/monitor.log"
+chmod 0644 "${INSTALL_DIR}/monitor.log"
+chown root:wheel "${INSTALL_DIR}/monitor.log"
+
+# -----------------------------------------------------------------------------
+# Step 4 — SSH key for UDR7 dedup
+# -----------------------------------------------------------------------------
+mkdir -p "${SSH_DIR}"
+chown root:wheel "${SSH_DIR}"
+chmod 0700 "${SSH_DIR}"
+if [[ ! -f "${SSH_KEY}" ]]; then
+    /usr/bin/ssh-keygen -t ed25519 -f "${SSH_KEY}" -N "" -C "tunnel-monitor@studio" >/dev/null
+    log "Generated SSH key."
+fi
+chown root:wheel "${SSH_KEY}" "${SSH_PUB}"
+chmod 0600 "${SSH_KEY}"
+chmod 0644 "${SSH_PUB}"
+
+# -----------------------------------------------------------------------------
+# Step 5 — symlink CLI
+# -----------------------------------------------------------------------------
+mkdir -p "$(dirname "${SYMLINK_DEST}")"
+if [[ -L "${SYMLINK_DEST}" || -e "${SYMLINK_DEST}" ]]; then
+    rm -f "${SYMLINK_DEST}"
+fi
+ln -s "${INSTALL_DIR}/tunnel-check" "${SYMLINK_DEST}"
+log "Symlinked ${SYMLINK_DEST}"
+
+# -----------------------------------------------------------------------------
+# Step 6 — Deploy SwiftBar plugin to the console user's plugins folder
+# -----------------------------------------------------------------------------
+USER_NAME="$(stat -f %Su /dev/console 2>/dev/null || echo "")"
+if [[ -n "${USER_NAME}" && "${USER_NAME}" != "root" ]]; then
+    USER_HOME="$(eval echo "~${USER_NAME}")"
+    PLUGIN_SRC="${APP_SUPPORT}/payload/SwiftBar/tunnel-monitor.30s.sh"
+    PLUGIN_DIR=""
+    if PD="$(sudo -u "${USER_NAME}" defaults read com.ainvyu.SwiftBar PluginDirectory 2>/dev/null)"; then
+        PLUGIN_DIR="${PD/#\~/${USER_HOME}}"
+    fi
+    [[ -z "${PLUGIN_DIR}" ]] && PLUGIN_DIR="${USER_HOME}/Library/Application Support/SwiftBar/Plugins"
+
+    if [[ -f "${PLUGIN_SRC}" ]]; then
+        mkdir -p "${PLUGIN_DIR}"
+        chown "${USER_NAME}":staff "${PLUGIN_DIR}"
+        install -m 0755 -o "${USER_NAME}" -g staff "${PLUGIN_SRC}" "${PLUGIN_DIR}/tunnel-monitor.30s.sh"
+        log "Installed SwiftBar plugin at ${PLUGIN_DIR}/tunnel-monitor.30s.sh"
+        sudo -u "${USER_NAME}" touch "${PLUGIN_DIR}/tunnel-monitor.30s.sh" 2>/dev/null || true
+    fi
+else
+    log "WARN: no console user detected — skipping SwiftBar plugin deployment."
+fi
+
+# -----------------------------------------------------------------------------
+# Step 7 — Bootstrap + enable the LaunchDaemon
+# -----------------------------------------------------------------------------
+if [[ ! -f "${PLIST_DEST}" ]]; then
+    log "ERROR: ${PLIST_DEST} missing after payload extraction."
+    exit 1
+fi
+chown root:wheel "${PLIST_DEST}"
+chmod 0644 "${PLIST_DEST}"
+
+if launchctl print "system/${LAUNCHD_LABEL}" >/dev/null 2>&1; then
+    launchctl bootout system "${PLIST_DEST}" 2>/dev/null || true
+fi
+if launchctl bootstrap system "${PLIST_DEST}"; then
+    log "Daemon bootstrapped."
+else
+    log "ERROR: launchctl bootstrap failed."
+    exit 1
+fi
+launchctl enable "system/${LAUNCHD_LABEL}" || true
+
+# -----------------------------------------------------------------------------
+# Step 8 — ensure /Applications/Tunnel Monitor.app perms
+# -----------------------------------------------------------------------------
+if [[ -d "/Applications/Tunnel Monitor.app" ]]; then
+    chown -R root:wheel "/Applications/Tunnel Monitor.app"
+    chmod -R go-w "/Applications/Tunnel Monitor.app"
+    log "App perms enforced."
+fi
+
+log "Postinstall OK."
+exit 0

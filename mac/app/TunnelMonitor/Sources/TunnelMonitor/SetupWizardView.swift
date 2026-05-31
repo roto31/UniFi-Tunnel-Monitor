@@ -25,17 +25,19 @@ struct SetupWizardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Configuration")
-                .font(.title2.weight(.semibold))
-                .padding(.bottom, 4)
-            Text("Enter the values normally placed in /opt/tunnel-monitor/config.env. Administrator approval is required to save.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.bottom, 12)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Configuration")
+                    .font(.title2.weight(.semibold))
+                Text("Enter the values normally placed in /opt/tunnel-monitor/config.env. Administrator approval is required to save.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .tmGlassCard(tint: .accentColor)
+            .padding(.bottom, 12)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                TMSectionContainer {
                     ForEach(catalog.sections) { section in
                         VStack(alignment: .leading, spacing: 8) {
                             Text(section.title)
@@ -44,6 +46,7 @@ struct SetupWizardView: View {
                                 fieldRow(field)
                             }
                         }
+                        .tmGlassCard()
                     }
                 }
                 .padding(.vertical, 4)
@@ -62,6 +65,7 @@ struct SetupWizardView: View {
                     SetupWizardState.hasCompleted = true
                     dismiss()
                 }
+                .tmGlassActionButton()
                 .keyboardShortcut(.cancelAction)
 
                 Spacer()
@@ -69,6 +73,7 @@ struct SetupWizardView: View {
                 Button("Save to /opt/tunnel-monitor/config.env") {
                     save()
                 }
+                .tmGlassProminentButton()
                 .keyboardShortcut(.defaultAction)
                 .disabled(isSaving)
             }
@@ -76,6 +81,7 @@ struct SetupWizardView: View {
         }
         .padding(20)
         .frame(width: 520)
+        .tmAppWindowBackground()
         .onAppear {
             if values.isEmpty {
                 seedDefaults()

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body { font: 13px -apple-system, system-ui, sans-serif; color: #222; margin: 20px; line-height: 1.45; }
+h1 { font-size: 17px; margin-bottom: 6px; }
+code { background: #f3f3f3; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+ul { padding-left: 18px; }
+</style></head><body>
+<h1>Tunnel Monitor</h1>
+<p>This installer deploys a macOS-native LaunchDaemon, CLI, menu-bar app, and optional SwiftBar plugin that watch the Banana ↔ Gam-and-Bee site-to-site IPsec VPN from a Mac client perspective.</p>
+<p>The package installs:</p>
+<ul>
+  <li><code>/Applications/Tunnel Monitor.app</code> — menu bar app</li>
+  <li><code>/opt/tunnel-monitor/</code> — scripts, CLI, config, state, logs</li>
+  <li><code>/Library/LaunchDaemons/com.ruter.tunnel-monitor.plist</code> — 5-min health-check daemon</li>
+  <li><code>/usr/local/bin/tunnel-check</code> — operator CLI symlink</li>
+  <li>SwiftBar plugin (deployed to the current user's plugins folder if present)</li>
+</ul>
+<p>After install, open <strong>Tunnel Monitor</strong> from the menu bar to set the SMTP password and authorize the SSH key on the UDR7.</p>
+</body></html>

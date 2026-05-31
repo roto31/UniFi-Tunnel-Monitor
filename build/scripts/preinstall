@@ -1,0 +1,46 @@
+#!/bin/bash
+# =============================================================================
+# preinstall — runs before payload extraction. Fails fast on bad environment.
+# =============================================================================
+
+set -euo pipefail
+
+LOG="/var/log/tunnel-monitor-install.log"
+log() { printf '[%s preinstall] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${LOG}" >&2; }
+
+log "Begin preinstall."
+
+if [[ "$(uname)" != "Darwin" ]]; then
+    log "ERROR: not macOS."
+    exit 3
+fi
+
+# Require macOS 13+.
+OS_MAJOR="$(sw_vers -productVersion | awk -F. '{print $1}')"
+if [[ "${OS_MAJOR}" -lt 13 ]]; then
+    log "ERROR: macOS 13 (Ventura) or later required (found ${OS_MAJOR})."
+    exit 3
+fi
+
+# If the LaunchDaemon is currently loaded, gracefully unload it so the new
+# binary lands safely.
+if launchctl print "system/com.ruter.tunnel-monitor" >/dev/null 2>&1; then
+    log "Daemon already loaded — booting out before replace."
+    launchctl bootout system "/Library/LaunchDaemons/com.ruter.tunnel-monitor.plist" 2>/dev/null || true
+fi
+
+# Preserve existing config.env + state.json by stashing them.
+STASH="/var/tmp/tunnel-monitor-stash"
+rm -rf "${STASH}"
+if [[ -d "/opt/tunnel-monitor" ]]; then
+    mkdir -p "${STASH}"
+    for f in config.env state.json monitor.log .ssh; do
+        if [[ -e "/opt/tunnel-monitor/${f}" ]]; then
+            cp -RP "/opt/tunnel-monitor/${f}" "${STASH}/" 2>/dev/null || true
+            log "Stashed /opt/tunnel-monitor/${f}"
+        fi
+    done
+fi
+
+log "Preinstall OK."
+exit 0

@@ -7,6 +7,20 @@ mac/app/TunnelMonitor/.build/
 mac/app/TunnelMonitor/.swiftpm/
 mac/app/TunnelMonitor/Package.resolved
 
+# Build outputs
+build/dist/
+build/dist-public/
+build/releases/*/
+!build/releases/README.md
+build/.stage/
+build/.scripts/
+build/.component.pkg
+build/.distribution.rendered.xml
+build/icon-compile/
+build/icon-raster/
+build/icon-test/
+build/xcode-build/
+
 # .NET tray app build artifacts
 tray-app/**/bin/
 tray-app/**/obj/
