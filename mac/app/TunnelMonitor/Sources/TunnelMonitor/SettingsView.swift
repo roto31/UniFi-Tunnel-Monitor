@@ -45,6 +45,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .tmAppWindowBackground()
         .frame(width: 440, height: 360)
     }
 }

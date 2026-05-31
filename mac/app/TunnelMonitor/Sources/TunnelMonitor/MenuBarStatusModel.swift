@@ -24,10 +24,21 @@ struct MenuBarLabelView: View {
     @ObservedObject var status: MenuBarStatusModel
 
     var body: some View {
-        Image(systemName: "circle.fill")
-            .font(.system(size: 11, weight: .bold))
-            .symbolRenderingMode(.palette)
-            .foregroundStyle(status.light.color, Color.clear)
-            .accessibilityLabel("Tunnel Monitor — \(status.light.title)")
+        Group {
+            if #available(macOS 26.0, *) {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(status.light.color, Color.clear)
+                    .padding(5)
+                    .glassEffect(.regular.tint(status.light.color.opacity(0.5)), in: .circle)
+            } else {
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(status.light.color, Color.clear)
+            }
+        }
+        .accessibilityLabel("Tunnel Monitor — \(status.light.title)")
     }
 }

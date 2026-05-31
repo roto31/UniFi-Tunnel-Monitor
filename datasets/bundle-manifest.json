@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "product": "tunnel-monitor-mac-public",
+  "description": "Bundled datasets in public Tunnel Monitor.app / Tunnel-Monitor.pkg releases.",
+  "releases": [
+    {
+      "sequence": 1,
+      "version": "1.0.0",
+      "tag": "v1.0.0",
+      "folder": "01-v1.0.0",
+      "released": "2026-05-12",
+      "dataRevision": {
+        "wizard-fields": "public-v1",
+        "app-icon": "legacy-icns-v1"
+      }
+    },
+    {
+      "sequence": 2,
+      "version": "1.1.0",
+      "tag": "v1.1.0",
+      "folder": "02-v1.1.0",
+      "released": "2026-05-31",
+      "dataRevision": {
+        "wizard-fields": "public-v1",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      }
+    }
+  ]
+}

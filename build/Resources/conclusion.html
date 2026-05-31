@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+body { font: 13px -apple-system, system-ui, sans-serif; color: #222; margin: 20px; line-height: 1.45; }
+h1 { font-size: 17px; margin-bottom: 6px; }
+code { background: #f3f3f3; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+ol { padding-left: 18px; }
+</style></head><body>
+<h1>Install complete</h1>
+<p>The LaunchDaemon is loaded and the menu bar app is in <code>/Applications</code>.</p>
+<ol>
+  <li>Open <strong>Tunnel Monitor</strong> from <code>/Applications</code> — it lives in the menu bar.</li>
+  <li>Click <em>Edit Config</em> and set <code>SMTP_PASSWORD</code> (iCloud app-specific password).</li>
+  <li>Click <em>Test Email</em> and <em>Test Notify</em> to verify alert paths.</li>
+  <li>Click <em>Copy SSH Auth Cmd</em>, then paste in Terminal and run it once to authorize this Mac on the UDR7 for dedup checks. Then click <em>SSH Test</em>.</li>
+  <li>Click <em>Force Check</em> to trigger an immediate health check.</li>
+</ol>
+<p>The first banner notification may be silently dropped by macOS. Open <strong>System Settings → Notifications</strong>, find <em>Script Editor</em> / <em>osascript</em>, and enable banners.</p>
+</body></html>

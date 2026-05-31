@@ -32,18 +32,14 @@ struct StatusContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        TMSectionContainer {
             statusHeader
             if !model.presentation.issues.isEmpty {
-                Divider()
                 issuesSection
             }
-            Divider()
             checksSection
-            Divider()
             dedupSection
             if showActions {
-                Divider()
                 actionsSection
             }
             if let result = lastActionResult, surface == .menuBar {
@@ -51,13 +47,14 @@ struct StatusContentView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .lineLimit(3)
+                    .padding(.horizontal, 4)
             }
             if showFooter {
-                Divider()
                 footer
             }
         }
         .padding(14)
+        .tmAppWindowBackground()
         .modifier(ActionResultAlertModifier(
             surface: surface,
             isPresented: $showingActionResult,
@@ -96,12 +93,10 @@ struct StatusContentView: View {
             Spacer()
             Text(model.alertState)
                 .font(.caption.weight(.bold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(p.trafficLight.color.opacity(0.18))
                 .foregroundStyle(p.trafficLight.color)
-                .clipShape(Capsule())
+                .tmGlassBadge(tint: p.trafficLight.color)
         }
+        .tmGlassCard(tint: p.trafficLight.color)
     }
 
     private var issuesSection: some View {
@@ -119,37 +114,41 @@ struct StatusContentView: View {
                 }
             }
         }
+        .tmGlassCard(tint: .yellow)
     }
 
     @ViewBuilder
     private var checksSection: some View {
-        if let s = model.snapshot {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Checks").font(.subheadline).bold()
-                CheckRow(label: "Tunnel",
-                         target: s.checks.tunnel.target,
-                         ok: s.checks.tunnel.ok,
-                         latency: s.checks.tunnel.latency_ms)
-                CheckRow(label: "Remote WAN",
-                         target: s.checks.remote_wan.target,
-                         ok: s.checks.remote_wan.ok,
-                         latency: s.checks.remote_wan.latency_ms)
-                CheckRow(label: "Our internet",
-                         target: s.checks.our_internet.target,
-                         ok: s.checks.our_internet.ok,
-                         latency: s.checks.our_internet.latency_ms)
-                dnsRow(s.checks.dns)
-                Text("Failure count: \(s.failure_count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("No state.json").font(.subheadline).bold()
-                Text("The daemon may not have run yet. Try Force Check.")
-                    .font(.caption).foregroundStyle(.secondary)
+        Group {
+            if let s = model.snapshot {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Checks").font(.subheadline).bold()
+                    CheckRow(label: "Tunnel",
+                             target: s.checks.tunnel.target,
+                             ok: s.checks.tunnel.ok,
+                             latency: s.checks.tunnel.latency_ms)
+                    CheckRow(label: "Remote WAN",
+                             target: s.checks.remote_wan.target,
+                             ok: s.checks.remote_wan.ok,
+                             latency: s.checks.remote_wan.latency_ms)
+                    CheckRow(label: "Our internet",
+                             target: s.checks.our_internet.target,
+                             ok: s.checks.our_internet.ok,
+                             latency: s.checks.our_internet.latency_ms)
+                    dnsRow(s.checks.dns)
+                    Text("Failure count: \(s.failure_count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("No state.json").font(.subheadline).bold()
+                    Text("The daemon may not have run yet. Try Force Check.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
+        .tmGlassCard()
     }
 
     private func dnsRow(_ dns: Snapshot.DNSCheck) -> some View {
@@ -189,6 +188,7 @@ struct StatusContentView: View {
                     Spacer()
                 }
             }
+            .tmGlassCard(tint: s.dedup.reachable ? .green : .red)
         }
     }
 
@@ -199,39 +199,50 @@ struct StatusContentView: View {
                 Button(action: openSetup) {
                     Label("Setup…", systemImage: "gearshape")
                 }
+                .tmGlassActionButton()
                 Button { runAction { Actions.checkNow() } } label: {
                     Label("Force Check", systemImage: "arrow.clockwise")
                 }
+                .tmGlassActionButton()
                 Button { runAction { Actions.testNotify() } } label: {
                     Label("Test Notify", systemImage: "bell.badge")
                 }
+                .tmGlassActionButton()
                 Button { runAction { Actions.testEmail() } } label: {
                     Label("Test Email", systemImage: "envelope")
                 }
+                .tmGlassActionButton()
             }
             HStack(spacing: 8) {
                 Button { runAction { Actions.tailLog() } } label: {
                     Label("Tail Log", systemImage: "text.alignleft")
                 }
+                .tmGlassActionButton()
                 Button { runAction { Actions.editConfig() } } label: {
                     Label("Edit Config", systemImage: "slider.horizontal.3")
                 }
+                .tmGlassActionButton()
                 Button { runAction { Actions.sshTest() } } label: {
                     Label("SSH Test", systemImage: "key")
                 }
+                .tmGlassActionButton()
             }
             HStack(spacing: 8) {
                 Button { runAction { Actions.resetState() } } label: {
                     Label("Reset State", systemImage: "arrow.counterclockwise")
                 }
+                .tmGlassActionButton()
                 Button { runMainActorAction { Actions.copySSHPubkeyCommand() } } label: {
                     Label("Copy SSH Auth Cmd", systemImage: "doc.on.clipboard")
                 }
+                .tmGlassActionButton()
                 Button { runMainActorAction { Actions.openStateInFinder(); return "Revealed state.json in Finder." } } label: {
                     Label("Reveal", systemImage: "folder")
                 }
+                .tmGlassActionButton()
             }
         }
+        .tmGlassCard()
     }
 
     private var footer: some View {
@@ -250,8 +261,10 @@ struct StatusContentView: View {
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
+            .tmGlassActionButton()
             .applyMenuBarQuitShortcut(surface == .dashboard)
         }
+        .tmGlassCard()
     }
 
     private func openSetup() {
