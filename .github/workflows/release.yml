@@ -14,9 +14,12 @@ permissions:
   contents: write
 
 jobs:
+concurrency:
+  group: m4-macos
+  cancel-in-progress: false
   build-pkg:
     name: Build & release .pkg
-    runs-on: macos-14
+    runs-on: [self-hosted, macOS, ARM64, m4-homelab]
     env:
       DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
       DEVELOPER_ID_INSTALLER:   ${{ secrets.DEVELOPER_ID_INSTALLER }}
