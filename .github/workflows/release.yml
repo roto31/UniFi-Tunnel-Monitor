@@ -13,10 +13,11 @@ on:
 permissions:
   contents: write
 
-jobs:
 concurrency:
   group: m4-macos
   cancel-in-progress: false
+
+jobs:
   build-pkg:
     name: Build & release .pkg
     runs-on: [self-hosted, macOS, ARM64, m4-homelab]
