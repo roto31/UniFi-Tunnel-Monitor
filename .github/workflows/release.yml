@@ -88,20 +88,35 @@ jobs:
           security unlock-keychain -p "${KEYCHAIN_PWD}" "${KEYCHAIN}"
           security import "${CERT}" -k "${KEYCHAIN}" -P "${CERT_PASS}" \
               -A -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productsign
+          # Developer ID Application (G2) is not trusted without this intermediate.
+          G2_CER="${RUNNER_TEMP}/DeveloperIDG2CA.cer"
+          curl -fsSL "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer" -o "${G2_CER}"
+          security import "${G2_CER}" -k "${KEYCHAIN}" -T /usr/bin/codesign >/dev/null
+          rm -f "${G2_CER}"
           # Quiet: this command dumps every key label to stdout.
           security set-key-partition-list -S apple-tool:,apple: -s -k "${KEYCHAIN_PWD}" "${KEYCHAIN}" >/dev/null
           # LaunchAgent cannot use login-keychain private-key ACLs (errSecInternalComponent).
-          # Keep System.keychain so Apple roots can validate Developer ID.
+          # Keep System.keychain so Apple Root CA can validate Developer ID G2.
+          # Restore login in the always() cleanup step — this is a self-hosted runner.
           security list-keychains -d user -s "${KEYCHAIN}" /Library/Keychains/System.keychain
           security default-keychain -d user -s "${KEYCHAIN}"
           rm -f "${CERT}"
           echo "CODESIGN_KEYCHAIN=${KEYCHAIN}" >> "${GITHUB_ENV}"
           if ! security find-identity -v -p codesigning "${KEYCHAIN}" | grep -q "Developer ID Application"; then
             echo "ERROR: p12 imported but no valid Developer ID Application identity found." >&2
-            security find-identity -p codesigning "${KEYCHAIN}" || true
             exit 1
           fi
           echo "Imported Developer ID identities into ephemeral keychain."
+
+      - name: Restore login keychain
+        if: always()
+        run: |
+          set -euo pipefail
+          LOGIN="${HOME}/Library/Keychains/login.keychain-db"
+          SYSTEM="/Library/Keychains/System.keychain"
+          security list-keychains -d user -s "${LOGIN}" "${SYSTEM}"
+          security default-keychain -d user -s "${LOGIN}"
+          echo "Restored user keychain search list to login + System."
 
       - name: Write App Store Connect API key
         run: |

@@ -13,7 +13,7 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 
 ### Build / CI
 
-- Release workflow imports a minimal Developer ID `.p12` into an ephemeral keychain and isolates the keychain search list so LaunchAgent `codesign` does not hit login-keychain ACLs (`errSecInternalComponent`).
+- Release workflow imports a minimal Developer ID `.p12` into an ephemeral keychain (plus Apple Developer ID G2 CA), isolates the search list from login (LaunchAgent `errSecInternalComponent`), and restores login.keychain after the job.
 
 ## [1.2.1] - 2026-09-06
 
