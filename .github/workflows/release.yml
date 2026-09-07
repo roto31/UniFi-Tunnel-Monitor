@@ -108,16 +108,6 @@ jobs:
           fi
           echo "Imported Developer ID identities into ephemeral keychain."
 
-      - name: Restore login keychain
-        if: always()
-        run: |
-          set -euo pipefail
-          LOGIN="${HOME}/Library/Keychains/login.keychain-db"
-          SYSTEM="/Library/Keychains/System.keychain"
-          security list-keychains -d user -s "${LOGIN}" "${SYSTEM}"
-          security default-keychain -d user -s "${LOGIN}"
-          echo "Restored user keychain search list to login + System."
-
       - name: Write App Store Connect API key
         run: |
           set -euo pipefail
@@ -157,3 +147,13 @@ jobs:
             build/releases/*/Tunnel-Monitor-*.pkg
             build/dist/Tunnel-Monitor-*.pkg
           generate_release_notes: true
+
+      - name: Restore login keychain
+        if: always()
+        run: |
+          set -euo pipefail
+          LOGIN="${HOME}/Library/Keychains/login.keychain-db"
+          SYSTEM="/Library/Keychains/System.keychain"
+          security list-keychains -d user -s "${LOGIN}" "${SYSTEM}"
+          security default-keychain -d user -s "${LOGIN}"
+          echo "Restored user keychain search list to login + System."
