@@ -18,7 +18,9 @@
 #   DEVELOPER_ID_INSTALLER        Apple Developer ID for signing the .pkg
 #                                 "Developer ID Installer: Name (TEAMID)"
 #   APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD
-#                                 If all three set, notarize + staple the pkg.
+#                                 If all three set (and no ASC .p8), notarize + staple.
+#   ASC_KEY_P8_PATH, ASC_KEY_ID, ASC_ISSUER_ID
+#                                 Preferred notarization (App Store Connect API key).
 # =============================================================================
 
 set -euo pipefail
@@ -225,8 +227,24 @@ green "Built ${FINAL_PKG}"
 # Step 7 — optional notarization + staple
 # -----------------------------------------------------------------------------
 
-if [[ -n "${APPLE_ID:-}" && -n "${APPLE_TEAM_ID:-}" && -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" && -n "${DEVELOPER_ID_INSTALLER:-}" ]]; then
-    step "Phase 7 — notarize"
+NOTARIZED=0
+if [[ -z "${DEVELOPER_ID_INSTALLER:-}" ]]; then
+    yellow "Skipping notarization (pkg is unsigned — set DEVELOPER_ID_INSTALLER)."
+elif [[ -n "${ASC_KEY_P8_PATH:-}" && -f "${ASC_KEY_P8_PATH}" && -n "${ASC_KEY_ID:-}" && -n "${ASC_ISSUER_ID:-}" ]]; then
+    step "Phase 7 — notarize (App Store Connect API key)"
+    if ! command -v xcrun >/dev/null 2>&1; then
+        red "ERROR: xcrun missing — cannot notarize."
+        exit 3
+    fi
+    yellow "Submitting to Apple notary service (this can take several minutes)..."
+    xcrun notarytool submit "${FINAL_PKG}" \
+        --key "${ASC_KEY_P8_PATH}" \
+        --key-id "${ASC_KEY_ID}" \
+        --issuer "${ASC_ISSUER_ID}" \
+        --wait
+    NOTARIZED=1
+elif [[ -n "${APPLE_ID:-}" && -n "${APPLE_TEAM_ID:-}" && -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
+    step "Phase 7 — notarize (Apple ID)"
     if ! command -v xcrun >/dev/null 2>&1; then
         red "ERROR: xcrun missing — cannot notarize."
         exit 3
@@ -237,12 +255,16 @@ if [[ -n "${APPLE_ID:-}" && -n "${APPLE_TEAM_ID:-}" && -n "${APPLE_APP_SPECIFIC_
         --team-id      "${APPLE_TEAM_ID}" \
         --password     "${APPLE_APP_SPECIFIC_PASSWORD}" \
         --wait
+    NOTARIZED=1
+else
+    yellow "Skipping notarization (set ASC_KEY_P8_PATH + ASC_KEY_ID + ASC_ISSUER_ID, or Apple ID + app-specific password)."
+fi
+
+if [[ "${NOTARIZED}" -eq 1 ]]; then
     step "Phase 8 — staple"
     xcrun stapler staple "${FINAL_PKG}"
     xcrun stapler validate "${FINAL_PKG}"
     green "Notarized and stapled."
-else
-    yellow "Skipping notarization (APPLE_ID / APPLE_TEAM_ID / APPLE_APP_SPECIFIC_PASSWORD / DEVELOPER_ID_INSTALLER not all set)."
 fi
 
 # -----------------------------------------------------------------------------

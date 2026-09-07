@@ -9,6 +9,16 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 - [Docs index](../docs/README.md)
 - [Troubleshooting](../docs/troubleshooting.md)
 
+## [1.2.1] - 2026-09-06
+
+### Security
+
+- Signed **Developer ID** `.app` + `.pkg` and Apple notarization (stapled), using the App Store Connect API key on the M4 GitHub Actions runner.
+
+### Build / CI
+
+- Release workflow writes `ASC_KEY_P8_*` for `notarytool` and uses host keychain Developer ID identities when no `.p12` secret is present.
+
 ## [1.2.0] - 2026-09-06
 
 ### Docs

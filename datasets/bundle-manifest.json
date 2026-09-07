@@ -38,6 +38,19 @@
         "assets-car": "liquid-glass-v1"
       },
       "notes": "IPsec troubleshooting runbooks (vti DOWN, NO_PROPOSAL_CHOSEN, ISP modem, compound failures); release workflow concurrency fix."
+    },
+    {
+      "sequence": 4,
+      "version": "1.2.1",
+      "tag": "v1.2.1",
+      "folder": "04-v1.2.1",
+      "released": "2026-09-06",
+      "dataRevision": {
+        "wizard-fields": "public-v1",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      },
+      "notes": "Developer ID signed + notarized pkg (ASC API key)."
     }
   ]
 }
