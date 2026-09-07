@@ -88,15 +88,17 @@ jobs:
           security unlock-keychain -p "${KEYCHAIN_PWD}" "${KEYCHAIN}"
           security import "${CERT}" -k "${KEYCHAIN}" -P "${CERT_PASS}" \
               -A -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productsign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "${KEYCHAIN_PWD}" "${KEYCHAIN}"
-          # LaunchAgent jobs cannot use login-keychain ACLs (errSecInternalComponent).
-          # Search only the ephemeral keychain for the rest of this job.
-          security list-keychains -d user -s "${KEYCHAIN}"
+          # Quiet: this command dumps every key label to stdout.
+          security set-key-partition-list -S apple-tool:,apple: -s -k "${KEYCHAIN_PWD}" "${KEYCHAIN}" >/dev/null
+          # LaunchAgent cannot use login-keychain private-key ACLs (errSecInternalComponent).
+          # Keep System.keychain so Apple roots can validate Developer ID.
+          security list-keychains -d user -s "${KEYCHAIN}" /Library/Keychains/System.keychain
           security default-keychain -d user -s "${KEYCHAIN}"
           rm -f "${CERT}"
           echo "CODESIGN_KEYCHAIN=${KEYCHAIN}" >> "${GITHUB_ENV}"
           if ! security find-identity -v -p codesigning "${KEYCHAIN}" | grep -q "Developer ID Application"; then
-            echo "ERROR: p12 imported but no Developer ID Application identity found." >&2
+            echo "ERROR: p12 imported but no valid Developer ID Application identity found." >&2
+            security find-identity -p codesigning "${KEYCHAIN}" || true
             exit 1
           fi
           echo "Imported Developer ID identities into ephemeral keychain."
