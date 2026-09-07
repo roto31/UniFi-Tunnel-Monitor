@@ -4,6 +4,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions: [SemVer](https://semver.org/spec/v2.0.0.html).
 Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json).
 
+## Documentation
+
+- [Docs index](../docs/README.md)
+- [Troubleshooting](../docs/troubleshooting.md)
+
+## [1.2.0] - 2026-09-06
+
+### Docs
+
+- [Troubleshooting](../docs/troubleshooting.md): five real-world IPsec failure modes — vti interface DOWN / stale charon PIDs, `NO_PROPOSAL_CHOSEN` after remote reboot (crypto + Auth ID drift), ISP modem DMZ vs port-forward vs Advanced Security, `ipsec`-only firmware note, and compound-failure sequencing.
+
+### Build / CI
+
+- Fix `concurrency` placement in `.github/workflows/release.yml` so tagged pkg builds run on the M4 runner.
+
 ## [1.1.0] - 2026-05-31
 
 ### Code

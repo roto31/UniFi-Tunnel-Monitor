@@ -25,6 +25,19 @@
         "app-icon": "liquid-glass-v1",
         "assets-car": "liquid-glass-v1"
       }
+    },
+    {
+      "sequence": 3,
+      "version": "1.2.0",
+      "tag": "v1.2.0",
+      "folder": "03-v1.2.0",
+      "released": "2026-09-06",
+      "dataRevision": {
+        "wizard-fields": "public-v1",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      },
+      "notes": "IPsec troubleshooting runbooks (vti DOWN, NO_PROPOSAL_CHOSEN, ISP modem, compound failures); release workflow concurrency fix."
     }
   ]
 }
