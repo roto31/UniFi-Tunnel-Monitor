@@ -19,6 +19,10 @@ Placeholder IPs refer to [`PLACEHOLDERS.md`](../PLACEHOLDERS.md).
 | `ROUTER UNREACHABLE` / `UDR7_UNREACHABLE` | Mac can't SSH local gateway | [Gateway SSH](#gateway-unreachable-mac) |
 | `DISAGREEMENT` | Gateway says UP, Mac says DOWN | [Disagreement](#disagreement) |
 | `OUR INTERNET DOWN` | Local ISP down | Fix local internet (no alert sent) |
+| `⚠ Tunnel DOWN (heal attempted, failed)` | Ladder ran; tunnel still down | [Self-healing](#self-healing-didnt-recover-the-tunnel) |
+| `⚠ Tunnel DOWN (heal exhausted)` | Consecutive heal budget spent | [Self-healing](#self-healing-didnt-recover-the-tunnel) |
+| `⚠ Tunnel DOWN (heal capped — investigate root cause)` | Daily heal cap hit | [Self-healing](#self-healing-didnt-recover-the-tunnel) |
+| `✓ Tunnel SELF-HEALED` | Gateway recovered without a DOWN mail | Optional; review `heal.log` |
 | WAN Guard `cgnat_blocked` | Backup CGNAT WAN active | [Dual WAN](#dual-wan-and-wan-guard) |
 | OpenVPN never connects | NAT/modem/key mismatch | [OpenVPN](#openvpn-wont-connect) |
 
@@ -124,6 +128,62 @@ ipsec statusall | head -15
 > firmware. If `swanctl: command not found`, use `ipsec` equivalents
 > throughout (`ipsec statusall`, `ipsec up`, `ipsec down`,
 > `ipsec stroke loglevel ike 3`). The `ipsec` command is always present.
+
+---
+
+## Self-healing didn't recover the tunnel
+
+Gateway-only. See [self-healing.md](self-healing.md) for the ladder and rails.
+
+### Beginner
+
+1. Read the **\[ Self-Healing Attempts \]** block in the alert email (which
+   step skipped, failed, or was disabled).
+2. If the subject says **heal capped** or **heal exhausted**, do **not** keep
+   toggling the VPN hoping the monitor will fix it — follow
+   [Tunnel down](#tunnel-down) as if healing were off.
+3. On the gateway:
+
+   ```bash
+   ssh root@YOUR_ROUTER_LAN_IP
+   tunnel-check --heal-status
+   tunnel-check --heal-log
+   ```
+
+4. To stop healing immediately:
+
+   ```bash
+   sed -i 's/^HEAL_ENABLED=.*/HEAL_ENABLED="false"/' /data/tunnel-monitor/config.env
+   ```
+
+### Advanced
+
+```bash
+tunnel-check --heal-log
+ipsec statusall | head -20
+ip -o link show
+ip -o addr show
+```
+
+Interpret the ladder:
+
+| Log | Meaning |
+|-----|---------|
+| step 1 SKIPPED (already UP) | Admin-state was not the problem |
+| step 1 post-check failed | Interface up but `TUNNEL_IP` still absent from Listening IPs — wait/reload |
+| step 2 connection not loaded | `ipsec reload` did not register `<conn-name>` |
+| step 3 FAILED (peer not responding) | Local stack tried; far end or crypto/path still broken |
+| step 4 DISABLED | Expected unless `HEAL_ALLOW_DAEMON_RESTART=true` |
+| skipped (local internet down) | `ping 1.1.1.1` failed — do not restart IPsec |
+| skipped (OpenVPN) | Heal will not run `ipsec` on an OpenVPN deployment |
+
+Enable **step 4** (stale-PID `pkill` + `ipsec start`) only after steps 1–3
+fail while the peer is reachable and you have seen leftover `charon.pid`
+files. Leave it false on a healthy tunnel.
+
+Repeated heals (hitting the daily cap) mean the monitor is masking a root
+cause: WAN flaps, UniFi post-restart hooks, or firmware. Fix that instead of
+raising `HEAL_MAX_PER_DAY`.
 
 ---
 
@@ -483,7 +543,8 @@ Use an **app-specific password**, not your normal email password (iCloud, Google
 
 ### Beginner
 
-Re-run installers from saved source folders — config is preserved:
+Re-run installers from saved source folders — `config.env`, `state`,
+`heal-state`, and `heal.log` are preserved:
 
 ```bash
 cd /root/tunnel-monitor-src && bash install.sh
@@ -498,7 +559,7 @@ Verify timers:
 systemctl list-timers tunnel-monitor.timer wan-guard.timer
 ```
 
-Re-check `WAN_GUARD_INTERFACE` — interface names (`eth0`, `eth2`, etc.) can change after firmware updates.
+Re-check `WAN_GUARD_INTERFACE` — interface names (`eth0`, `eth2`, etc.) can change after firmware updates. Tunnel interface names (`vti*`, `ipsec*`) can also change; self-healing discovers the iface from `TUNNEL_IP` rather than a hardcoded name.
 
 ---
 

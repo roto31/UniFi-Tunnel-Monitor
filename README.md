@@ -17,6 +17,9 @@ SwiftBar). Together they give you:
 - **De-duplicated alerting** — when the router has already alerted, the Mac
   suppresses its email but still updates the menu bar (and vice-versa is not
   needed, because the router is the primary).
+- **Optional self-healing** on the UniFi gateway — bounded `ip link` /
+  `ipsec` recovery before a DOWN email. Off by default. See
+  [docs/self-healing.md](docs/self-healing.md).
 
 > ⚠️ **This is a sanitized public release.** Every IP, hostname, email
 > address, and identifier in the configs and scripts has been replaced with
@@ -117,6 +120,7 @@ diagrams (data flow, state machine, dedup decision tree, topology).
 | macOS banner notifications               | ❌                  | ✅        |
 | SwiftBar menu-bar status                 | ❌                  | ✅        |
 | SSH-based dedup of router-side alerts    | n/a                | ✅        |
+| Self-heal IPsec (`heal.sh` ladder)       | ✅                  | ❌        |
 
 The two sides are **complementary**, not redundant.
 

@@ -51,6 +51,19 @@
         "assets-car": "liquid-glass-v1"
       },
       "notes": "Developer ID signed + notarized pkg (ASC API key)."
+    },
+    {
+      "sequence": 5,
+      "version": "1.3.0",
+      "tag": "v1.3.0",
+      "folder": "05-v1.3.0",
+      "released": "2026-09-06",
+      "dataRevision": {
+        "wizard-fields": "public-v1",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      },
+      "notes": "Opt-in UniFi gateway self-healing (heal.sh); CI ephemeral keychain codesign."
     }
   ]
 }

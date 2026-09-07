@@ -11,9 +11,19 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-06
+
+### Added
+
+- UniFi gateway **self-healing** (`unifi/heal.sh`): opt-in IPsec recovery ladder before DOWN alerts, with attempt budget, cooldown, daily cap, and no-heal on local outage — see [Self-healing](../docs/self-healing.md).
+
+### Docs
+
+- [Self-healing](../docs/self-healing.md) and troubleshooting section [Self-healing didn't recover the tunnel](../docs/troubleshooting.md#self-healing-didnt-recover-the-tunnel).
+
 ### Build / CI
 
-- Release workflow imports a minimal Developer ID `.p12` into an ephemeral keychain (plus Apple Developer ID G2 CA), isolates the search list from login (LaunchAgent `errSecInternalComponent`), and restores login.keychain after the job.
+- Release workflow imports a minimal Developer ID `.p12` into an ephemeral keychain (plus Apple Developer ID G2 CA), isolates the search list from login (LaunchAgent `errSecInternalComponent`), and restores login.keychain after the job. systemd `TimeoutStartSec=240` so a full heal ladder can finish.
 
 ## [1.2.1] - 2026-09-06
 

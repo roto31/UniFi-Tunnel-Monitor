@@ -67,9 +67,13 @@ across the `mac/` subtree (3 files) before installing.
 
 ## 3. UniFi-side only
 
-There are no UniFi-only placeholders beyond the shared config values. The
-UniFi monitor doesn't SSH to anything; it relies on the local `ipsec` CLI
-and `journalctl` for diagnostics.
+| Placeholder | What to set it to | Example value |
+|-------------|-------------------|---------------|
+| `REPLACE_WITH_TUNNEL_IP` | Address on the Route-Based tunnel interface (strongSwan Listening IP) | `10.255.254.1` (your VTI address, not a LAN host) |
+| `REPLACE_WITH_IPSEC_CONN_NAME` | strongSwan connection name passed to `ipsec up` (not a DNS name) | `site-to-site` as shown in `ipsec statusall` |
+
+These are required only if you enable [self-healing](docs/self-healing.md).
+Leave the placeholders in place while `HEAL_ENABLED=false`.
 
 ## 4. What is NOT a placeholder
 

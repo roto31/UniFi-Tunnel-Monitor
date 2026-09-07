@@ -23,6 +23,7 @@ build/icon-compile/
 build/icon-raster/
 build/icon-test/
 build/xcode-build/
+STREAM_B_REPORT.md
 
 # .NET tray app build artifacts
 tray-app/**/bin/
