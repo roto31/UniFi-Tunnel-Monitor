@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea3d419bc6fbc2e94d6b # v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Resolve version
         id: ver
@@ -48,7 +48,14 @@ jobs:
           echo "Resolved version: ${V}"
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: |
+          set -euo pipefail
+          if [[ -d /Applications/Xcode.app ]]; then
+            echo "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer" >> "${GITHUB_ENV}"
+            export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+          fi
+          xcode-select -p
+          xcodebuild -version
 
       - name: Import signing cert
         if: env.MACOS_CERT_P12_BASE64 != ''
@@ -78,7 +85,7 @@ jobs:
           VERSION="${{ steps.ver.outputs.version }}" bash build/build-pkg.sh
 
       - name: Upload artifact
-        uses: actions/upload-artifact@65c88fcd6040d0c04ac32b0487bee3dd4c059fae # v4.6.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
         with:
           name: tunnel-monitor-pkg-${{ steps.ver.outputs.version }}
           path: |
@@ -87,7 +94,7 @@ jobs:
 
       - name: Create GitHub release
         if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@e7a2fe0680d5a15519aedd8d8ccb62eaa268a500 # v2.9.0
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           files: |
             build/releases/*/Tunnel-Monitor-*.pkg

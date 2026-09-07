@@ -18,6 +18,7 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 ### Build / CI
 
 - Fix `concurrency` placement in `.github/workflows/release.yml` so tagged pkg builds run on the M4 runner.
+- Pin release Actions to resolvable SHAs (`checkout` v4.2.2, `upload-artifact` v4.6.0, `action-gh-release` v2.6.2) and select Xcode without `sudo`.
 
 ## [1.1.0] - 2026-05-31
 
