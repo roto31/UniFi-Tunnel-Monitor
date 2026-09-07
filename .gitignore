@@ -1,4 +1,7 @@
 .DS_Store
+config/AuthKey_*.p8
+config/release.local.env
+.release-notes-v*.md
 *.swp
 *.tmp
 
