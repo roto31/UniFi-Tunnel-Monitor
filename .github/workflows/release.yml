@@ -82,14 +82,24 @@ jobs:
           KEYCHAIN="${RUNNER_TEMP}/build.keychain"
           KEYCHAIN_PWD="github-actions"
           echo "${CERT_B64}" | base64 --decode > "${CERT}"
+          rm -f "${KEYCHAIN}"
           security create-keychain -p "${KEYCHAIN_PWD}" "${KEYCHAIN}"
           security set-keychain-settings -lut 21600 "${KEYCHAIN}"
           security unlock-keychain -p "${KEYCHAIN_PWD}" "${KEYCHAIN}"
           security import "${CERT}" -k "${KEYCHAIN}" -P "${CERT_PASS}" \
-              -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productsign
+              -A -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/productsign
           security set-key-partition-list -S apple-tool:,apple: -s -k "${KEYCHAIN_PWD}" "${KEYCHAIN}"
-          security list-keychains -d user -s "${KEYCHAIN}" $(security list-keychains -d user | tr -d '"')
+          # LaunchAgent jobs cannot use login-keychain ACLs (errSecInternalComponent).
+          # Search only the ephemeral keychain for the rest of this job.
+          security list-keychains -d user -s "${KEYCHAIN}"
+          security default-keychain -d user -s "${KEYCHAIN}"
           rm -f "${CERT}"
+          echo "CODESIGN_KEYCHAIN=${KEYCHAIN}" >> "${GITHUB_ENV}"
+          if ! security find-identity -v -p codesigning "${KEYCHAIN}" | grep -q "Developer ID Application"; then
+            echo "ERROR: p12 imported but no Developer ID Application identity found." >&2
+            exit 1
+          fi
+          echo "Imported Developer ID identities into ephemeral keychain."
 
       - name: Write App Store Connect API key
         run: |

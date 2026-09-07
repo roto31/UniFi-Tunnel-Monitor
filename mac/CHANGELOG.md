@@ -9,6 +9,12 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 - [Docs index](../docs/README.md)
 - [Troubleshooting](../docs/troubleshooting.md)
 
+## [Unreleased]
+
+### Build / CI
+
+- Release workflow imports a minimal Developer ID `.p12` into an ephemeral keychain and isolates the keychain search list so LaunchAgent `codesign` does not hit login-keychain ACLs (`errSecInternalComponent`).
+
 ## [1.2.1] - 2026-09-06
 
 ### Security

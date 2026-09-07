@@ -10,6 +10,8 @@
 #                                 If set, the .app is codesigned with hardened
 #                                 runtime + timestamp. If unset, adhoc-signs the
 #                                 bundle (needed for launch from /Applications).
+#   CODESIGN_KEYCHAIN             Optional path to a keychain for --keychain
+#                                 (CI ephemeral keychain; avoids login ACL).
 # =============================================================================
 
 set -euo pipefail
@@ -174,6 +176,9 @@ ENTITLEMENTS="${ROOT_DIR}/build/TunnelMonitor.entitlements"
 if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
     SIGN_ARGS=(--force --options runtime --timestamp \
         --sign "${DEVELOPER_ID_APPLICATION}")
+    if [[ -n "${CODESIGN_KEYCHAIN:-}" ]]; then
+        SIGN_ARGS+=(--keychain "${CODESIGN_KEYCHAIN}")
+    fi
     if [[ -f "${ENTITLEMENTS}" ]]; then
         SIGN_ARGS+=(--entitlements "${ENTITLEMENTS}")
     fi
