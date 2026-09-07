@@ -18,6 +18,7 @@ mkdir -p "$TARGET_DIR"
 install -m 0755 "${SOURCE_DIR}/monitor.sh"     "${TARGET_DIR}/monitor.sh"
 install -m 0700 "${SOURCE_DIR}/send-email.sh"  "${TARGET_DIR}/send-email.sh"
 install -m 0755 "${SOURCE_DIR}/tunnel-check"   "${TARGET_DIR}/tunnel-check"
+install -m 0755 "${SOURCE_DIR}/heal.sh"        "${TARGET_DIR}/heal.sh"
 
 # Preserve existing config if present; otherwise drop template
 if [[ ! -f "${TARGET_DIR}/config.env" ]]; then
@@ -31,6 +32,26 @@ fi
 # Initialize state if missing
 [[ -f "${TARGET_DIR}/state" ]] || echo "0:UP" > "${TARGET_DIR}/state"
 chmod 0644 "${TARGET_DIR}/state"
+
+# Heal counters/log survive firmware; never clobber on re-run
+if [[ ! -f "${TARGET_DIR}/heal-state" ]]; then
+    cat > "${TARGET_DIR}/heal-state" <<'EOF'
+attempts_today=0
+attempts_day=
+consecutive_fails=0
+last_cycle_epoch=0
+last_result=
+cooldown_until_epoch=0
+exhausted_alerted=0
+capped_alerted=0
+EOF
+    echo "==> Initialized ${TARGET_DIR}/heal-state"
+else
+    echo "==> Existing heal-state preserved at ${TARGET_DIR}/heal-state"
+fi
+[[ -f "${TARGET_DIR}/heal.log" ]] || touch "${TARGET_DIR}/heal.log"
+chmod 0644 "${TARGET_DIR}/heal-state" "${TARGET_DIR}/heal.log"
+
 
 # Install systemd units
 install -m 0644 "${SOURCE_DIR}/tunnel-monitor.service" "${SYSTEMD_DIR}/tunnel-monitor.service"
@@ -63,3 +84,6 @@ echo "       journalctl -u tunnel-monitor.service --no-pager -n 30"
 echo
 echo "  5. See timer status:"
 echo "       systemctl list-timers tunnel-monitor.timer"
+echo
+echo "  6. From this source directory: bash verify.sh"
+

@@ -2,13 +2,19 @@
 # =============================================================================
 # tunnel-check — one-shot diagnostic dump
 # Usage:
-#   tunnel-check           # show full diagnostics
-#   tunnel-check --test-email  # send a test email through the alert pipeline
-#   tunnel-check --reset   # clear failure counter (e.g. after manual fix)
+#   tunnel-check                  # show full diagnostics
+#   tunnel-check --test-email     # send a test email through the alert pipeline
+#   tunnel-check --reset          # clear failure counter (e.g. after manual fix)
+#   tunnel-check --heal-status    # self-healing counters / cooldown
+#   tunnel-check --heal-now       # force one heal cycle (ignores cooldown)
+#   tunnel-check --heal-dry-run   # print ladder; change nothing
+#   tunnel-check --heal-reset     # clear heal counters
+#   tunnel-check --heal-log       # tail heal.log
 # =============================================================================
 
 set -u
 SCRIPT_DIR="/data/tunnel-monitor"
+HEAL_SCRIPT="${SCRIPT_DIR}/heal.sh"
 
 case "${1:-}" in
     --test-email)
@@ -27,6 +33,39 @@ case "${1:-}" in
         ;;
     --history)
         journalctl -u tunnel-monitor.service --no-pager -n 50
+        ;;
+    --heal-status)
+        "${HEAL_SCRIPT}" --status
+        ;;
+    --heal-now)
+        echo "Forcing one heal cycle (cooldown ignored; daily cap and local-outage rail still apply)..."
+        "${HEAL_SCRIPT}" --force --ignore-cooldown TUNNEL_DOWN
+        echo "Exit: $?"
+        ;;
+    --heal-dry-run)
+        "${HEAL_SCRIPT}" --dry-run TUNNEL_DOWN
+        ;;
+    --heal-reset)
+        "${HEAL_SCRIPT}" --reset
+        ;;
+    --heal-log)
+        tail -n 50 "${SCRIPT_DIR}/heal.log" 2>/dev/null || echo "(no heal.log yet)"
+        ;;
+    --help|-h)
+        cat <<'EOF'
+tunnel-check — UniFi gateway tunnel diagnostics
+
+  (no args)         status dump
+  --test-email      send a test alert email
+  --reset           write 0:UP to the monitor state file
+  --tail            follow systemd journal
+  --history         last 50 journal lines
+  --heal-status     self-healing counters
+  --heal-now        force one IPsec recovery cycle
+  --heal-dry-run    show recovery ladder; change nothing
+  --heal-reset      clear heal counters and cooldowns
+  --heal-log        tail /data/tunnel-monitor/heal.log
+EOF
         ;;
     *)
         # shellcheck disable=SC1090
@@ -51,11 +90,23 @@ case "${1:-}" in
         ping -c 2 -W 2 -q "1.1.1.1" >/dev/null 2>&1 && echo OK || echo FAIL
         echo
         echo "[ IPsec ]"
-        ipsec statusall 2>/dev/null | grep -E "(ESTABLISHED|CONNECTING|Security Associations)" | sed 's/^/  /'
+        ipsec statusall 2>/dev/null | grep -E "(ESTABLISHED|CONNECTING|Security Associations)" | sed 's/^/  /' || echo "  ipsec statusall not available"
+        echo
+        echo "[ Self-Healing ]"
+        echo "  Enabled:        ${HEAL_ENABLED:-false}  dry-run=${HEAL_DRY_RUN:-false}"
+        if [[ -f "${SCRIPT_DIR}/heal-state" ]]; then
+            _at="$(grep '^attempts_today=' "${SCRIPT_DIR}/heal-state" | head -1)"
+            _cf="$(grep '^consecutive_fails=' "${SCRIPT_DIR}/heal-state" | head -1)"
+            echo "  ${_at:-attempts_today=?} of ${HEAL_MAX_PER_DAY:-6} today"
+            echo "  ${_cf:-consecutive_fails=?} consecutive fails"
+        else
+            echo "  (no heal-state yet)"
+        fi
         echo
         echo "[ Timer ]"
         systemctl list-timers tunnel-monitor.timer --no-pager 2>/dev/null | head -3
         echo "=============================================================="
         echo "Commands:  tunnel-check --test-email | --reset | --tail | --history"
+        echo "           tunnel-check --heal-status | --heal-now | --heal-dry-run | --heal-reset | --heal-log"
         ;;
 esac

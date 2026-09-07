@@ -45,6 +45,7 @@ All examples use **placeholders**. Configure real values via [`PLACEHOLDERS.md`]
 | [network-overview.md](network-overview.md) | Generic topology (placeholder IPs) |
 | [implementation-guide.md](implementation-guide.md) | End-to-end replication checklist |
 | [troubleshooting.md](troubleshooting.md) | Beginner steps + advanced diagnosis |
+| [self-healing.md](self-healing.md) | Gateway opt-in IPsec recovery ladder |
 | [../PLACEHOLDERS.md](../PLACEHOLDERS.md) | Every config placeholder |
 
 ---

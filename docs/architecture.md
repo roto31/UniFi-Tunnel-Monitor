@@ -285,6 +285,39 @@ The two-monitor design covers both blind spots and also catches the case
 where the router itself is unreachable (the Mac side flags
 `ROUTER_UNREACHABLE` and takes over alerting).
 
+### Self-healing (gateway only)
+
+The UniFi monitor may run a bounded IPsec recovery ladder (`heal.sh`) after
+it classifies `TUNNEL DOWN` and before it sends a DOWN email. The Mac never
+runs recovery: it only reads `N:UP` / `N:DOWN`. A successful heal writes
+`0:UP`, so the Mac sees a healthy gateway and will not treat the outage as
+ongoing unless its own tunnel ping still fails (`DISAGREEMENT`).
+
+```mermaid
+flowchart TD
+    START([gateway check: ping REMOTE_LAN_IP]) --> UP{tunnel ping OK?}
+    UP -- yes --> HEALTHY["write 0:UP<br/>reset heal consecutive fails"]:::ok
+    UP -- no --> CLS{classify}
+    CLS --> DDNS["DDNS DRIFT"]:::alert
+    CLS --> REM["REMOTE INTERNET DOWN"]:::alert
+    CLS --> TD["TUNNEL DOWN"]
+    DDNS --> ALERT[normal DOWN email]
+    REM --> ALERT
+    TD --> HE{HEAL_ENABLED?}
+    HE -- no --> ALERT
+    HE -- yes --> RAILS{rails permit?<br/>budget cooldown cap 1.1.1.1}
+    RAILS -- no --> NOTE["DOWN email + heal suppressed note"]:::alert
+    RAILS -- yes --> LAD["heal.sh ladder<br/>iface up → reload → ipsec up<br/>optional daemon restart"]
+    LAD --> POST{ping REMOTE_LAN_IP OK?}
+    POST -- yes --> SH["write 0:UP<br/>optional SELF-HEALED email<br/>no DOWN alert"]:::ok
+    POST -- no --> FAIL["increment failure count<br/>DOWN email + heal summary"]:::alert
+
+    classDef ok       fill:#e6f4ea,stroke:#137333,color:#0a3d20;
+    classDef alert    fill:#fce8e6,stroke:#c5221f,color:#5b0f0a;
+```
+
+Details and rails: [self-healing.md](self-healing.md).
+
 ### Optional spoke-side monitors
 
 The same hub pattern can be mirrored at the **remote site**: gateway monitor

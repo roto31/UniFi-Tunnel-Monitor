@@ -65,12 +65,13 @@ bash install.sh
 
 The installer:
 
-1. Copies `monitor.sh`, `send-email.sh`, `tunnel-check` into
-   `/data/tunnel-monitor/` with `0755` / `0700` / `0755` modes.
+1. Copies `monitor.sh`, `send-email.sh`, `tunnel-check`, `heal.sh` into
+   `/data/tunnel-monitor/` with `0755` / `0700` / `0755` / `0755` modes.
 2. Drops `config.env.template` as `/data/tunnel-monitor/config.env`
    (mode `0600`) **only if** `config.env` is missing — re-runs preserve
    your edited config.
 3. Initializes `/data/tunnel-monitor/state` to `0:UP` if missing.
+   Initializes `heal-state` and `heal.log` if missing; never overwrites them.
 4. Installs `tunnel-monitor.service` and `tunnel-monitor.timer` into
    `/etc/systemd/system/`.
 5. Symlinks `/data/tunnel-monitor/tunnel-check` to `/usr/local/bin/tunnel-check`.
@@ -80,7 +81,7 @@ The installer:
 After install, edit the config:
 
 ```bash
-nano /data/tunnel-monitor/config.env
+vi /data/tunnel-monitor/config.env
 ```
 
 Replace every `REPLACE_WITH_*` value (see [`../PLACEHOLDERS.md`](../PLACEHOLDERS.md)).
@@ -117,6 +118,9 @@ Optional tuning:
 | `PING_COUNT`         | `3`     | Pings per check                                  |
 | `PING_TIMEOUT`       | `2`     | Seconds before each ping is considered failed    |
 | `SUBJECT_PREFIX`     | `""`    | Optional prefix on email subjects (e.g. `[ROUTER]`) |
+| `HEAL_ENABLED`       | `false` | Opt-in self-healing ([docs/self-healing.md](../docs/self-healing.md)) |
+| `TUNNEL_IP`          | placeholder | Tunnel iface address (heal ladder) |
+| `IPSEC_CONN_NAME`    | placeholder | `ipsec up` connection name |
 
 ---
 
@@ -129,6 +133,11 @@ Optional tuning:
 | `tunnel-check --reset`                   | Clear failure counter (after manual fix)      |
 | `tunnel-check --tail`                    | Follow live monitor logs via `journalctl -f`  |
 | `tunnel-check --history`                 | Last 50 monitor runs                          |
+| `tunnel-check --heal-status`             | Heal counters, cooldown, last cycle           |
+| `tunnel-check --heal-dry-run`            | Print recovery ladder; change nothing         |
+| `tunnel-check --heal-now`                | Force one heal cycle (ignores cooldown)       |
+| `tunnel-check --heal-reset`              | Clear heal counters                           |
+| `tunnel-check --heal-log`                | Tail `/data/tunnel-monitor/heal.log`          |
 | `systemctl start tunnel-monitor.service` | Force an immediate check                      |
 | `systemctl list-timers tunnel-monitor.timer` | When the next scheduled run will fire     |
 
@@ -190,6 +199,12 @@ Behavioural facts (cite by line; see file for full code):
 - `.timer` fires `OnBootSec=2min` then `OnUnitActiveSec=5min`, with
   `Persistent=true` so a missed run while the gateway was offline fires on
   next boot.
+- `.service` `TimeoutStartSec=240` so a full heal ladder (`HEAL_TOTAL_TIMEOUT=180`) plus diagnostics can finish.
+
+### `heal.sh` — optional IPsec recovery ladder
+
+See [../docs/self-healing.md](../docs/self-healing.md). Defaults off. Never
+runs for DDNS drift, remote-internet-down, or OpenVPN.
 
 ---
 
@@ -243,8 +258,9 @@ cd /root/tunnel-monitor-src
 bash install.sh
 ```
 
-It preserves your existing `config.env` so you won't have to re-enter the
-SMTP password.
+It preserves your existing `config.env`, `state`, `heal-state`, and
+`heal.log` so you won't have to re-enter the SMTP password or lose heal
+counters.
 
 ---
 
@@ -255,8 +271,11 @@ SMTP password.
 ├── monitor.sh                       # health check + state machine
 ├── send-email.sh                    # authenticated SMTP submission via curl
 ├── tunnel-check                     # CLI tool (symlinked to /usr/local/bin)
+├── heal.sh                          # optional IPsec recovery ladder
 ├── config.env                       # SMTP creds + tunable params (chmod 0600)
-└── state                            # "N:UP" or "N:DOWN" — internal state
+├── state                            # "N:UP" or "N:DOWN" — internal state
+├── heal-state                       # self-heal counters (key=value)
+└── heal.log                         # self-heal audit log
 
 /etc/systemd/system/                 # Volatile — may need reinstall
 ├── tunnel-monitor.service

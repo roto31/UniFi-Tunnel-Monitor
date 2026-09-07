@@ -10,4 +10,4 @@ User=root
 StandardOutput=journal
 StandardError=journal
 # Avoid hanging on a flaky tunnel
-TimeoutStartSec=120
+TimeoutStartSec=240
