@@ -105,7 +105,7 @@ Tunnel Monitor continues to ping `REPLACE_WITH_REMOTE_LAN_GATEWAY_IP` — no rep
 
 ```bash
 sudo rm -f /opt/tunnel-monitor/.ssh/known_hosts
-tunnel-check --ssh-test
+sudo tunnel-check --ssh-test
 sudo /opt/tunnel-monitor/ssh-router-state.sh
 ```
 

@@ -79,7 +79,7 @@ Optional: install SwiftBar (`brew install --cask swiftbar`).
 
 See [mac/README.md](../mac/README.md).
 
-**Dedup test:** `tunnel-check --ssh-test` must return gateway state line `N:UP` or `N:DOWN`.
+**Dedup test:** `sudo tunnel-check --ssh-test` must return gateway state line `N:UP` or `N:DOWN`.
 
 ---
 
@@ -131,7 +131,7 @@ If you force specific clients over the VPN (e.g. streaming devices):
 | Tunnel ping | `ping REMOTE_LAN_IP` from Mac | Replies |
 | Gateway status | `tunnel-check` on gateway | `0:UP` |
 | Mac status | `tunnel-check` on Mac | `HEALTHY` |
-| SSH dedup | `tunnel-check --ssh-test` on Mac | Success |
+| SSH dedup | `sudo tunnel-check --ssh-test` on Mac | Success |
 | Email | `--test-email` both sides | Received |
 | WAN Guard | `wan-guard status` | `in_sync` (if installed) |
 

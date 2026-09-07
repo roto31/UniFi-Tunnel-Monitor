@@ -61,9 +61,9 @@ Human labels in the GUI come from the same codes (e.g. **DDNS DRIFT — fix No-I
 
 | Symptom | Steps |
 |---------|--------|
-| Dedup always unreachable | **SSH Test**; run **Copy SSH Auth Cmd** once; verify `UDR7_HOST` is LAN IP of gateway |
-| Permission denied | Key path `UDR7_KEY` mode `600`; pubkey on gateway `authorized_keys` |
-| Wrong state path | Match `UDR7_STATE_PATH` to gateway monitor (`/data/tunnel-monitor/state`) |
+| Dedup always unreachable | **SSH Test** (admin prompt) or `sudo tunnel-check --ssh-test`; run **Copy SSH Auth Cmd** once; verify `ROUTER_HOST` or `UDR7_HOST` is the gateway LAN IP |
+| Permission denied | Run as root (`sudo` / in-app admin prompt). Key path `ROUTER_KEY`/`UDR7_KEY` mode `600`; pubkey on gateway `authorized_keys` |
+| Wrong state path | Match `ROUTER_STATE_PATH`/`UDR7_STATE_PATH` to gateway monitor (`/data/tunnel-monitor/state`) |
 
 ---
 

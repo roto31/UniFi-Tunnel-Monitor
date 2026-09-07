@@ -75,7 +75,7 @@ tunnel-check
 ping -c 3 REMOTE_LAN_IP
 ping -c 3 REMOTE_WAN_IP
 dig +short REMOTE_DDNS @1.1.1.1
-tunnel-check --ssh-test
+sudo tunnel-check --ssh-test
 ```
 
 #### Route-Based IPsec: vti tunnel interface DOWN
@@ -341,7 +341,7 @@ The Mac monitor cannot SSH to your **local gateway** for dedup.
 
 1. Can you open `https://ROUTER_LAN_IP` in a browser?
 2. If no → power-cycle the local gateway.
-3. If yes → run `tunnel-check --ssh-test`. Follow installer SSH key steps in [mac/README.md](../mac/README.md).
+3. If yes → run `sudo tunnel-check --ssh-test` (or **SSH Test** in the app — it prompts for admin). Follow installer SSH key steps in [mac/README.md](../mac/README.md). Wizard-era `UDR7_*` keys are aliases of `ROUTER_*`; both are valid.
 
 ### Advanced
 

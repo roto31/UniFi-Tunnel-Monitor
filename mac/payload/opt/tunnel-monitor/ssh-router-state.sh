@@ -30,7 +30,8 @@ OUTPUT
     non-zero if SSH fails or the remote file is missing.
 
 CONFIG
-    Reads ROUTER_HOST, ROUTER_USER, ROUTER_KEY, ROUTER_STATE_PATH from config.env.
+    Reads ROUTER_HOST / ROUTER_USER / ROUTER_KEY / ROUTER_STATE_PATH from
+    config.env. Wizard-era UDR7_* names are accepted as aliases.
 EOF
 }
 
@@ -47,13 +48,16 @@ fi
 # shellcheck disable=SC1090
 source "${CONFIG_FILE}"
 
-# NOTE: the fallback defaults below are RFC-5737 documentation IPs and will
-# never connect to a real network. Set ROUTER_HOST / ROUTER_USER in config.env
-# before installing. See PLACEHOLDERS.md for the canonical value reference.
-ROUTER_HOST="${ROUTER_HOST:-192.0.2.254}"
-ROUTER_USER="${ROUTER_USER:-root}"
-ROUTER_KEY="${ROUTER_KEY:-/opt/tunnel-monitor/.ssh/id_ed25519}"
-ROUTER_STATE_PATH="${ROUTER_STATE_PATH:-/data/tunnel-monitor/state}"
+# Wizard historically wrote UDR7_*; payload scripts read ROUTER_*.
+ROUTER_HOST="${ROUTER_HOST:-${UDR7_HOST:-}}"
+ROUTER_USER="${ROUTER_USER:-${UDR7_USER:-root}}"
+ROUTER_KEY="${ROUTER_KEY:-${UDR7_KEY:-/opt/tunnel-monitor/.ssh/id_ed25519}}"
+ROUTER_STATE_PATH="${ROUTER_STATE_PATH:-${UDR7_STATE_PATH:-/data/tunnel-monitor/state}}"
+
+if [[ -z "${ROUTER_HOST}" ]]; then
+    echo "ERROR: set ROUTER_HOST or UDR7_HOST in ${CONFIG_FILE}" >&2
+    exit 2
+fi
 
 if [[ ! -f "${ROUTER_KEY}" ]]; then
     echo "ERROR: SSH key missing: ${ROUTER_KEY}" >&2

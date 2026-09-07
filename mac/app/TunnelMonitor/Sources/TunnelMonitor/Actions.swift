@@ -57,7 +57,7 @@ enum Actions {
     }
 
     static func sshTest() -> String {
-        let (code, out) = run(tunnelCheckBin, args: ["--ssh-test"])
+        let (code, out) = runAsRoot("\(tunnelCheckBin) --ssh-test")
         return code == 0 ? "OK\n\(out)" : "SSH test failed (\(code)):\n\(out)"
     }
 
