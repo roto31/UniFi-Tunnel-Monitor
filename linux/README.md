@@ -159,7 +159,7 @@ value means.
 | `sudo tunnel-check --reset`          | Reset `state.json` to a fresh `UP/0`          |
 | `tunnel-check --tail`                | `tail -f /opt/tunnel-monitor/monitor.log`     |
 | `tunnel-check --history`             | Last 50 log lines                             |
-| `tunnel-check --ssh-test`            | Verify SSH-based router dedup works           |
+| `sudo tunnel-check --ssh-test`       | Verify SSH-based router dedup works           |
 | `tunnel-check --status`              | `systemctl status` of the timer + service     |
 
 ---

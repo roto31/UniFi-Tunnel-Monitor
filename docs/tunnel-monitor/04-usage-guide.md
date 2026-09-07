@@ -52,7 +52,7 @@ Shows whether the gateway SSH read succeeded and the remote state string (e.g. `
 | **Test Email** | Runs `tunnel-check --test-email` |
 | **Tail Log** | Opens Terminal `tail -f` on `monitor.log` |
 | **Edit Config** | Terminal `sudo -e config.env` (async; status line in popover) |
-| **SSH Test** | `tunnel-check --ssh-test` |
+| **SSH Test** | Admin `tunnel-check --ssh-test` |
 | **Reset State** | Admin reset alert latch to UP |
 | **Copy SSH Auth Cmd** | Builds `authorized_keys` one-liner to clipboard |
 | **Reveal** | Finder reveals `state.json` |
@@ -119,7 +119,7 @@ tunnel-check --test-email
 tunnel-check --test-notify
 sudo tunnel-check --check-now
 sudo tunnel-check --reset
-tunnel-check --ssh-test
+sudo tunnel-check --ssh-test
 ```
 
 See [../../mac/README.md](../../mac/README.md).

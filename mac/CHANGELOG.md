@@ -11,6 +11,18 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-06
+
+### Fixed
+
+- Menu-bar **SSH Test** prompts for administrator (same as Force Check). `config.env` and the SSH key are `0600 root`, so an unprivileged `tunnel-check --ssh-test` always failed with Permission denied.
+- Dedup SSH reads `UDR7_*` as aliases of `ROUTER_*`. Wizard Save no longer leaves the script targeting the dummy `192.0.2.254` fallback. Empty host now errors instead of connecting to a documentation IP.
+- Setup Save writes both `ROUTER_*` and `UDR7_*` so either name works after the next Save.
+
+### Docs
+
+- CLI cheat sheet and [Gateway unreachable (Mac)](../docs/troubleshooting.md#gateway-unreachable-mac) require `sudo tunnel-check --ssh-test`.
+
 ## [1.3.0] - 2026-09-06
 
 ### Added

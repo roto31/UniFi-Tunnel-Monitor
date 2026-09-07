@@ -68,10 +68,10 @@ enum WizardFieldLoader {
         {
           "title": "Router dedup (SSH)",
           "fields": [
-            {"key": "UDR7_HOST", "label": "Router LAN IP (SSH target)", "secure": false, "default": "192.168.1.1", "help": null},
-            {"key": "UDR7_USER", "label": "SSH user", "secure": false, "default": "root", "help": null},
-            {"key": "UDR7_KEY", "label": "SSH private key path", "secure": false, "default": "/opt/tunnel-monitor/.ssh/id_ed25519", "help": null},
-            {"key": "UDR7_STATE_PATH", "label": "Remote state file path", "secure": false, "default": "/data/tunnel-monitor/state", "help": null}
+            {"key": "ROUTER_HOST", "label": "Router LAN IP (SSH)", "secure": false, "default": "REPLACE_WITH_ROUTER_LAN_IP", "help": "UniFi / gateway running the sibling monitor."},
+            {"key": "ROUTER_USER", "label": "SSH user", "secure": false, "default": "REPLACE_WITH_ROUTER_SSH_USER", "help": null},
+            {"key": "ROUTER_KEY", "label": "SSH private key path", "secure": false, "default": "/opt/tunnel-monitor/.ssh/id_ed25519", "help": null},
+            {"key": "ROUTER_STATE_PATH", "label": "Remote state file path", "secure": false, "default": "/data/tunnel-monitor/state", "help": null}
           ]
         },
         {

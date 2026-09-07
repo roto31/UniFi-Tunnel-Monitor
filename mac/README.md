@@ -178,7 +178,7 @@ value means.
 | `sudo tunnel-check --reset`          | Reset `state.json` to a fresh `UP/0`          |
 | `tunnel-check --tail`                | `tail -f /opt/tunnel-monitor/monitor.log`     |
 | `tunnel-check --history`             | Last 50 log lines                             |
-| `tunnel-check --ssh-test`            | Verify SSH-based router dedup works           |
+| `sudo tunnel-check --ssh-test`       | Verify SSH-based router dedup works           |
 | `tunnel-check --status`              | `launchctl print` of the daemon               |
 
 ---
@@ -315,7 +315,7 @@ Combine the `TUNNEL_DOWN` setup above with a bogus `ROUTER_HOST`:
 
 ```bash
 sudo sed -i '' 's/^ROUTER_HOST=.*/ROUTER_HOST="10.255.255.254"/' /opt/tunnel-monitor/config.env
-tunnel-check --ssh-test            # should FAIL
+sudo tunnel-check --ssh-test       # should FAIL
 sudo tunnel-check --check-now
 tunnel-check                       # diagnosis: ROUTER_UNREACHABLE
 ```

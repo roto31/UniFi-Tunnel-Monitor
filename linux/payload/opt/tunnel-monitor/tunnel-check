@@ -30,7 +30,7 @@ USAGE
     tunnel-check --reset         Reset state.json to a fresh UP state
     tunnel-check --tail          tail -f monitor.log
     tunnel-check --history       Last 50 lines of monitor.log
-    tunnel-check --ssh-test      Verify SSH-based ROUTER dedup works
+    tunnel-check --ssh-test      Verify SSH-based ROUTER dedup works (requires sudo)
     tunnel-check --status        systemctl status of the timer + service
     tunnel-check --help
 
@@ -203,6 +203,7 @@ cmd_history() {
 }
 
 cmd_ssh_test() {
+    require_root
     if [[ ! -x "${SSH_ROUTER_BIN}" ]]; then
         echo "ERROR: ${SSH_ROUTER_BIN} not executable" >&2
         exit 1

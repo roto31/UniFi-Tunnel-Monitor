@@ -64,6 +64,19 @@
         "assets-car": "liquid-glass-v1"
       },
       "notes": "Opt-in UniFi gateway self-healing (heal.sh); CI ephemeral keychain codesign."
+    },
+    {
+      "sequence": 6,
+      "version": "1.3.1",
+      "tag": "v1.3.1",
+      "folder": "06-v1.3.1",
+      "released": "2026-09-06",
+      "dataRevision": {
+        "wizard-fields": "public-v1",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      },
+      "notes": "SSH Test runs as admin; UDR7_* aliases for ROUTER_* so wizard Save does not break dedup."
     }
   ]
 }
