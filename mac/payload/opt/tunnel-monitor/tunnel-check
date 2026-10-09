@@ -16,6 +16,7 @@ SEND_EMAIL_BIN="${INSTALL_DIR}/send-email.sh"
 NOTIFY_BIN="${INSTALL_DIR}/notify.sh"
 SSH_ROUTER_BIN="${INSTALL_DIR}/ssh-router-state.sh"
 SSH_SPOKE_BIN="${INSTALL_DIR}/ssh-spoke-state.sh"
+SPOKE_POLICY_CHECK_BIN="${INSTALL_DIR}/spoke-policy-check.sh"
 LAUNCHD_LABEL="com.example.tunnel-monitor"
 PLIST_PATH="/Library/LaunchDaemons/${LAUNCHD_LABEL}.plist"
 
@@ -33,6 +34,8 @@ USAGE
     tunnel-check --history       Last 50 lines of monitor.log
     tunnel-check --ssh-test      Verify SSH-based ROUTER dedup works (requires sudo)
     tunnel-check --spoke-test    Verify spoke policy-route SSH (requires sudo)
+    tunnel-check --spoke-install-checker
+                             Install the spoke policy checker (requires sudo)
     tunnel-check --status        launchctl print of the daemon
     tunnel-check --help
 
@@ -280,6 +283,104 @@ cmd_spoke_test() {
     fi
 }
 
+valid_ipv4_cidr() {
+    local cidr="$1" o1 o2 o3 o4 prefix
+    [[ "${cidr}" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})/([0-9]{1,2})$ ]] || return 1
+    o1="${BASH_REMATCH[1]}"
+    o2="${BASH_REMATCH[2]}"
+    o3="${BASH_REMATCH[3]}"
+    o4="${BASH_REMATCH[4]}"
+    prefix="${BASH_REMATCH[5]}"
+    [[ "$((10#${o1}))" -le 255 && "$((10#${o2}))" -le 255 && "$((10#${o3}))" -le 255 && "$((10#${o4}))" -le 255 ]] || return 1
+    [[ "$((10#${prefix}))" -le 32 ]] || return 1
+}
+
+cmd_spoke_install_checker() {
+    require_root
+    local cfg="${INSTALL_DIR}/config.env"
+    if [[ ! -f "${cfg}" ]]; then
+        echo "ERROR: ${cfg} missing" >&2
+        exit 2
+    fi
+    if [[ ! -f "${SPOKE_POLICY_CHECK_BIN}" ]]; then
+        echo "ERROR: ${SPOKE_POLICY_CHECK_BIN} missing" >&2
+        exit 1
+    fi
+    # shellcheck disable=SC1090
+    source "${cfg}"
+    local host="${SPOKE_HOST:-}"
+    local user="${SPOKE_USER:-root}"
+    local key_path="${SPOKE_KEY:-${INSTALL_DIR}/.ssh/id_ed25519}"
+    local cidr="${SPOKE_POLICY_SOURCE_CIDR:-}"
+    local state_path="${SPOKE_POLICY_STATE_PATH:-/data/tunnel-monitor/policy-state}"
+    if [[ -z "${host}" || "${host}" == REPLACE_WITH_* ]]; then
+        echo "ERROR: set SPOKE_HOST in ${cfg}" >&2
+        exit 2
+    fi
+    if ! valid_ipv4_cidr "${cidr}"; then
+        echo "ERROR: set SPOKE_POLICY_SOURCE_CIDR to the policy-route source prefix" >&2
+        exit 2
+    fi
+    if [[ ! "${state_path}" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
+        echo "ERROR: SPOKE_POLICY_STATE_PATH is not a safe absolute path" >&2
+        exit 2
+    fi
+    if [[ ! -f "${key_path}" ]]; then
+        echo "ERROR: SSH key missing: ${key_path}" >&2
+        exit 2
+    fi
+
+    local ssh_opts=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new
+        -o UserKnownHostsFile="${INSTALL_DIR}/.ssh/known_hosts" -i "${key_path}")
+    local remote="${user}@${host}"
+
+    echo "Installing spoke policy checker on ${remote}"
+    ssh "${ssh_opts[@]}" "${remote}" "mkdir -p /data/tunnel-monitor && cat > /data/tunnel-monitor/spoke-policy-check.sh && chmod 750 /data/tunnel-monitor/spoke-policy-check.sh" \
+        < "${SPOKE_POLICY_CHECK_BIN}"
+
+    local env_tmp
+    env_tmp="$(mktemp)"
+    cat > "${env_tmp}" <<EOF
+POLICY_SOURCE_CIDR="${cidr}"
+POLICY_STATE_PATH="${state_path}"
+FAILURE_THRESHOLD=3
+TUNNEL_DEV_RE='^(tun|vtun|vti|wg)[0-9]+$'
+EOF
+    ssh "${ssh_opts[@]}" "${remote}" "cat > /data/tunnel-monitor/policy-check.env && chmod 600 /data/tunnel-monitor/policy-check.env" \
+        < "${env_tmp}"
+    rm -f "${env_tmp}"
+
+    ssh "${ssh_opts[@]}" "${remote}" "cat > /etc/systemd/system/tunnel-monitor-policy.service" <<'EOF'
+[Unit]
+Description=Tunnel Monitor spoke policy check
+
+[Service]
+Type=oneshot
+ExecStart=/data/tunnel-monitor/spoke-policy-check.sh
+EOF
+    ssh "${ssh_opts[@]}" "${remote}" "cat > /etc/systemd/system/tunnel-monitor-policy.timer" <<'EOF'
+[Unit]
+Description=Run the Tunnel Monitor spoke policy check every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
+EOF
+    ssh "${ssh_opts[@]}" "${remote}" "systemctl daemon-reload && systemctl enable --now tunnel-monitor-policy.timer && /data/tunnel-monitor/spoke-policy-check.sh && echo STATE && cat '${state_path}'"
+
+    local label
+    for label in com.ruter.tunnel-monitor com.example.tunnel-monitor; do
+        if launchctl print "system/${label}" >/dev/null 2>&1; then
+            launchctl kickstart -k "system/${label}" || true
+        fi
+    done
+    echo "Spoke policy checker installed."
+}
+
 cmd_ssh_test() {
     require_root
     if [[ ! -x "${SSH_ROUTER_BIN}" ]]; then
@@ -312,6 +413,7 @@ case "${1:-}" in
     --history)         cmd_history ;;
     --ssh-test)        cmd_ssh_test ;;
     --spoke-test)      cmd_spoke_test ;;
+    --spoke-install-checker) cmd_spoke_install_checker ;;
     --status)          cmd_daemon_status ;;
     --help|-h|help)    show_help ;;
     *)

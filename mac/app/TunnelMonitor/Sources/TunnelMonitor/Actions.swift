@@ -66,6 +66,12 @@ enum Actions {
         return code == 0 ? "OK\n\(out)" : "Spoke SSH test failed (\(code)):\n\(out)"
     }
 
+    static func installSpokeChecker() -> String {
+        let label = AppBranding.launchDaemonLabel
+        let (code, out) = runAsRoot("\(tunnelCheckBin) --spoke-install-checker && /bin/launchctl kickstart -k system/\(label)")
+        return code == 0 ? "Spoke checker installed.\n\(out)" : "Install failed (\(code)):\n\(out)"
+    }
+
     /// Opens Terminal without blocking the main thread (required for MenuBarExtra actions).
     static func openInTerminal(_ command: String) {
         Task { @MainActor in

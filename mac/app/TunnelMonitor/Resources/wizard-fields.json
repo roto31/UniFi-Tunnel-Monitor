@@ -198,6 +198,13 @@
           "secure": false,
           "default": "Spoke policy route",
           "help": "Shown on the status card."
+        },
+        {
+          "key": "SPOKE_POLICY_SOURCE_CIDR",
+          "label": "Policy source prefix",
+          "secure": false,
+          "default": "",
+          "help": "IPv4 prefix of the network the spoke policy route sends through the tunnel. Install Checker uses this. Placeholder: REPLACE_WITH_SPOKE_POLICY_SOURCE_CIDR."
         }
       ]
     }
