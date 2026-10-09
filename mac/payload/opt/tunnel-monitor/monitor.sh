@@ -2,7 +2,7 @@
 # =============================================================================
 # the remote site Tunnel Monitor — Mac edition
 # =============================================================================
-# A SECOND vantage point for the the local site <-> the remote site site-to-site IPsec VPN.
+# A SECOND vantage point for the the local site <-> the remote site site-to-site VPN.
 # A sibling monitor on the ROUTER watches the tunnel from the router; this one
 # watches it from a LAN client (the Mac) so we catch the failure mode
 # where "the router thinks it's fine but the Mac can't reach anything."
@@ -30,6 +30,11 @@ LOG_MAX_BYTES=$((1 * 1024 * 1024))
 SEND_EMAIL_BIN="${SCRIPT_DIR}/send-email.sh"
 NOTIFY_BIN="${SCRIPT_DIR}/notify.sh"
 SSH_ROUTER_BIN="${SCRIPT_DIR}/ssh-router-state.sh"
+SSH_SPOKE_BIN="${SCRIPT_DIR}/ssh-spoke-state.sh"
+ADVISORIES_PREV_FILE="${SCRIPT_DIR}/advisories.prev"
+
+SPOKE_POLICY_ENABLED=false
+SPOKE_POLICY_LABEL="Spoke policy route"
 
 # -----------------------------------------------------------------------------
 # Help / subcommand dispatch
@@ -110,6 +115,14 @@ load_config() {
     SUBJECT_PREFIX="${SUBJECT_PREFIX:-[MAC]}"
     NOTIFY_SOUND_DOWN="${NOTIFY_SOUND_DOWN:-Glass}"
     NOTIFY_SOUND_RECOVERY="${NOTIFY_SOUND_RECOVERY:-Hero}"
+
+    # Spoke policy-route visibility is opt-in. Off matches 1.3.1 behavior.
+    SPOKE_POLICY_ENABLED="${SPOKE_POLICY_ENABLED:-false}"
+    SPOKE_HOST="${SPOKE_HOST:-}"
+    SPOKE_USER="${SPOKE_USER:-root}"
+    SPOKE_KEY="${SPOKE_KEY:-/opt/tunnel-monitor/.ssh/id_ed25519}"
+    SPOKE_POLICY_STATE_PATH="${SPOKE_POLICY_STATE_PATH:-/data/tunnel-monitor/policy-state}"
+    SPOKE_POLICY_LABEL="${SPOKE_POLICY_LABEL:-Spoke policy route}"
 }
 
 # -----------------------------------------------------------------------------
@@ -201,6 +214,16 @@ ROUTER_STATE_LINE=""
 ROUTER_COUNT=0
 ROUTER_ALERT_STATE="UP"
 
+# Spoke policy-route visibility (only populated when the feature is on and
+# the tunnel ping succeeded). Advisories never change diagnosis.
+SPOKE_CHECKED=false
+SPOKE_REACHABLE=false
+SPOKE_POLICY_LINE=""
+SPOKE_POLICY_COUNT=0
+SPOKE_POLICY_ALERT=""
+SPOKE_WAN_OBSERVED=""
+ADVISORIES=""
+
 read_router_state() {
     ROUTER_REACHABLE=false
     ROUTER_STATE_LINE=""
@@ -214,6 +237,157 @@ read_router_state() {
         ROUTER_COUNT="${line%%:*}"
         ROUTER_ALERT_STATE="${line##*:}"
     fi
+}
+
+# -----------------------------------------------------------------------------
+# Spoke policy-route visibility (opt-in; does not affect diagnosis)
+# -----------------------------------------------------------------------------
+
+append_advisory() {
+    if [[ -z "${ADVISORIES}" ]]; then
+        ADVISORIES="$1"
+    else
+        ADVISORIES="${ADVISORIES}
+$1"
+    fi
+}
+
+read_spoke_state() {
+    SPOKE_CHECKED=false
+    SPOKE_REACHABLE=false
+    SPOKE_POLICY_LINE=""
+    SPOKE_POLICY_COUNT=0
+    SPOKE_POLICY_ALERT=""
+    SPOKE_WAN_OBSERVED=""
+
+    if [[ "${SPOKE_POLICY_ENABLED}" != "true" ]]; then
+        return 0
+    fi
+    if [[ "${OK_TUNNEL}" != "true" ]]; then
+        return 0
+    fi
+
+    SPOKE_CHECKED=true
+    local out line1 line2
+    if ! out="$("${SSH_SPOKE_BIN}" 2>/dev/null)"; then
+        SPOKE_REACHABLE=false
+        return 0
+    fi
+    line1="$(printf '%s\n' "${out}" | sed -n '1p' | tr -d '[:space:]')"
+    line2="$(printf '%s\n' "${out}" | sed -n '2p' | tr -d '[:space:]')"
+    if [[ ! "${line1}" =~ ^[0-9]+:(UP|DOWN)$ ]] && [[ "${line1}" != "MISSING" ]]; then
+        SPOKE_REACHABLE=false
+        return 0
+    fi
+    if [[ ! "${line2}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] && [[ "${line2}" != "UNKNOWN" ]]; then
+        SPOKE_REACHABLE=false
+        return 0
+    fi
+
+    SPOKE_REACHABLE=true
+    SPOKE_POLICY_LINE="${line1}"
+    if [[ "${line1}" != "MISSING" ]]; then
+        SPOKE_POLICY_COUNT="${line1%%:*}"
+        SPOKE_POLICY_ALERT="${line1##*:}"
+    fi
+    if [[ "${line2}" != "UNKNOWN" ]]; then
+        SPOKE_WAN_OBSERVED="${line2}"
+    fi
+}
+
+build_advisories() {
+    ADVISORIES=""
+    if [[ "${SPOKE_POLICY_ENABLED}" != "true" || "${OK_TUNNEL}" != "true" ]]; then
+        return 0
+    fi
+    if [[ "${SPOKE_REACHABLE}" != "true" ]]; then
+        append_advisory "SPOKE_UNREACHABLE"
+        return 0
+    fi
+    case "${SPOKE_POLICY_LINE}" in
+        MISSING)
+            append_advisory "SPOKE_POLICY_MISSING"
+            ;;
+        *:DOWN)
+            append_advisory "SPOKE_POLICY_DOWN"
+            ;;
+        *:UP)
+            if [[ "${SPOKE_POLICY_COUNT}" != "0" ]]; then
+                append_advisory "SPOKE_POLICY_DEGRADED"
+            fi
+            ;;
+    esac
+    if [[ "${SPOKE_WAN_OBSERVED}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+        if [[ "${SPOKE_WAN_OBSERVED}" != "${REMOTE_WAN_IP}" ]]; then
+            append_advisory "REMOTE_WAN_IP_STALE"
+        fi
+        if [[ -n "${DNS_RESOLVED}" && "${SPOKE_WAN_OBSERVED}" != "${DNS_RESOLVED}" ]]; then
+            append_advisory "REMOTE_DDNS_STALE"
+        fi
+    fi
+}
+
+advisory_phrase() {
+    case "$1" in
+        SPOKE_UNREACHABLE)    printf '%s' "Spoke unreachable over the tunnel." ;;
+        SPOKE_POLICY_MISSING) printf '%s' "${SPOKE_POLICY_LABEL} is not installed on the spoke." ;;
+        SPOKE_POLICY_DOWN)    printf '%s' "${SPOKE_POLICY_LABEL} is broken — traffic is not using the tunnel." ;;
+        SPOKE_POLICY_DEGRADED) printf '%s' "${SPOKE_POLICY_LABEL} is recovering." ;;
+        REMOTE_WAN_IP_STALE)  printf '%s' "Observed WAN ${SPOKE_WAN_OBSERVED} differs from REMOTE_WAN_IP." ;;
+        REMOTE_DDNS_STALE)    printf '%s' "Observed WAN ${SPOKE_WAN_OBSERVED} differs from the DDNS record." ;;
+        *)                    printf '%s' "$1" ;;
+    esac
+}
+
+# One banner when the advisory set changes. Sidecar is not alerting state.
+notify_advisory_transition() {
+    [[ "${SPOKE_CHECKED}" == "true" ]] || return 0
+    local cur_file prev_sorted added removed body first extra
+    cur_file="$(mktemp -t tunnel-monitor-advisories.XXXXXX)"
+    printf '%s\n' "${ADVISORIES}" | sed '/^$/d' | sort -u > "${cur_file}"
+    if [[ ! -f "${ADVISORIES_PREV_FILE}" ]]; then
+        : > "${ADVISORIES_PREV_FILE}"
+    fi
+    prev_sorted="$(mktemp -t tunnel-monitor-advisories-prev.XXXXXX)"
+    sed '/^$/d' "${ADVISORIES_PREV_FILE}" | sort -u > "${prev_sorted}"
+    if ! cmp -s "${cur_file}" "${prev_sorted}"; then
+        added="$(comm -13 "${prev_sorted}" "${cur_file}" || true)"
+        removed="$(comm -23 "${prev_sorted}" "${cur_file}" || true)"
+        if [[ -n "${added}" ]]; then
+            first=""
+            local code
+            while IFS= read -r code; do
+                [[ -z "${code}" ]] && continue
+                if printf '%s\n' "${added}" | grep -qx "${code}"; then
+                    first="${code}"
+                    break
+                fi
+            done <<EOF
+${ADVISORIES}
+EOF
+            [[ -n "${first}" ]] || first="$(printf '%s\n' "${added}" | sed -n '1p')"
+            extra="$(printf '%s\n' "${added}" | sed '/^$/d' | wc -l | tr -d ' ')"
+            extra=$((extra - 1))
+            body="$(advisory_phrase "${first}")"
+            if [[ "${extra}" -gt 0 ]]; then
+                body="${body} (+${extra} more)"
+            fi
+            local title="${SPOKE_POLICY_LABEL}"
+            case "${first}" in
+                REMOTE_*) title="Remote WAN" ;;
+            esac
+            "${NOTIFY_BIN}" "${title}" "${body}" "${NOTIFY_SOUND_DOWN}" || true
+            log_info "advisory banner (new): ${first}"
+        elif [[ -n "${removed}" ]]; then
+            first="$(printf '%s\n' "${removed}" | sed -n '1p')"
+            body="Cleared: $(advisory_phrase "${first}")"
+            "${NOTIFY_BIN}" "Advisory cleared" "${body}" "${NOTIFY_SOUND_RECOVERY}" || true
+            log_info "advisory banner (cleared): ${first}"
+        fi
+        cp "${cur_file}" "${ADVISORIES_PREV_FILE}"
+        chmod 0644 "${ADVISORIES_PREV_FILE}" 2>/dev/null || true
+    fi
+    rm -f "${cur_file}" "${prev_sorted}"
 }
 
 # -----------------------------------------------------------------------------
@@ -269,7 +443,7 @@ diagnosis_subject_suffix() {
 
 diagnosis_short_line() {
     case "$1" in
-        TUNNEL_DOWN)          printf '%s' 'Tunnel ping failing — check IPsec on ROUTER.' ;;
+        TUNNEL_DOWN)          printf '%s' 'Tunnel ping failing — check the site-to-site VPN on the ROUTER.' ;;
         DDNS_DRIFT)           printf '%s' 'DDNS drift — fix your DDNS provider record.' ;;
         REMOTE_INTERNET_DOWN) printf '%s' 'Remote site internet appears down.' ;;
         ROUTER_UNREACHABLE)     printf '%s' 'ROUTER unreachable — Mac taking over alerting.' ;;
@@ -318,6 +492,36 @@ write_state() {
 
     local tmp="${STATE_FILE}.tmp"
 
+    local spoke_enabled_json="false"
+    local spoke_reachable_json="null"
+    local spoke_state_json="null"
+    local spoke_label_json="null"
+    local spoke_checked_json="null"
+    local observed_json="null"
+    local advisories_json="[]"
+
+    if [[ "${SPOKE_POLICY_ENABLED}" == "true" ]]; then
+        spoke_enabled_json="true"
+        spoke_label_json="$(jq -n --arg s "${SPOKE_POLICY_LABEL}" '$s')"
+    fi
+    if [[ "${SPOKE_CHECKED}" == "true" ]]; then
+        if [[ "${SPOKE_REACHABLE}" == "true" ]]; then
+            spoke_reachable_json="true"
+        else
+            spoke_reachable_json="false"
+        fi
+        spoke_checked_json="$(jq -n --arg s "${checked_at}" '$s')"
+    fi
+    if [[ -n "${SPOKE_POLICY_LINE}" ]]; then
+        spoke_state_json="$(jq -n --arg s "${SPOKE_POLICY_LINE}" '$s')"
+    fi
+    if [[ -n "${SPOKE_WAN_OBSERVED}" ]]; then
+        observed_json="$(jq -n --arg s "${SPOKE_WAN_OBSERVED}" '$s')"
+    fi
+    if [[ -n "${ADVISORIES}" ]]; then
+        advisories_json="$(printf '%s\n' "${ADVISORIES}" | sed '/^$/d' | jq -R . | jq -s .)"
+    fi
+
     local tunnel_lat="${LATENCY_TUNNEL:-}"
     local rwan_lat="${LATENCY_REMOTE_WAN:-}"
     local our_lat="${LATENCY_OUR_INTERNET:-}"
@@ -344,6 +548,13 @@ write_state() {
         --arg last_alert "${last_alert}" \
         --arg last_recovery "${last_recovery}" \
         --arg diagnosis "${diagnosis}" \
+        --argjson spoke_enabled "${spoke_enabled_json}" \
+        --argjson spoke_reachable "${spoke_reachable_json}" \
+        --argjson spoke_state "${spoke_state_json}" \
+        --argjson spoke_label "${spoke_label_json}" \
+        --argjson spoke_checked "${spoke_checked_json}" \
+        --argjson remote_wan_observed "${observed_json}" \
+        --argjson advisories "${advisories_json}" \
         '{
             timestamp: $ts,
             alert_state: $alert_state,
@@ -361,7 +572,16 @@ write_state() {
             },
             last_alert_sent_at:    (if $last_alert    == "" then null else $last_alert    end),
             last_recovery_sent_at: (if $last_recovery == "" then null else $last_recovery end),
-            diagnosis: $diagnosis
+            diagnosis: $diagnosis,
+            spoke_policy: {
+                enabled: $spoke_enabled,
+                reachable: $spoke_reachable,
+                state: $spoke_state,
+                label: $spoke_label,
+                checked_at: $spoke_checked
+            },
+            remote_wan_observed: $remote_wan_observed,
+            advisories: $advisories
         }' > "${tmp}" 2>/dev/null; then
         log_error "failed to render state.json"
         rm -f "${tmp}"
@@ -532,6 +752,8 @@ cmd_check() {
     read_prev_state
     run_health_checks
     read_router_state
+    read_spoke_state
+    build_advisories
 
     local diagnosis; diagnosis="$(diagnose)"
 
@@ -546,6 +768,7 @@ cmd_check() {
         OUR_INTERNET_DOWN)
             # We are offline — cannot trust the test. Hold state, log, exit clean.
             log_warn "our internet is down; holding state at ${PREV_FAILURE_COUNT}:${PREV_ALERT_STATE}"
+            notify_advisory_transition || true
             write_state "${new_failure_count}" "${new_alert_state}" "${diagnosis}" \
                 "${last_alert}" "${last_recovery}" "${now_iso}" || true
             exit 0
@@ -593,6 +816,9 @@ cmd_check() {
     write_state "${new_failure_count}" "${new_alert_state}" "${diagnosis}" \
         "${last_alert}" "${last_recovery}" "${now_iso}" || true
 
+    # Advisories never email. One banner per set transition.
+    notify_advisory_transition || true
+
     exit 0
 }
 
@@ -605,6 +831,8 @@ cmd_diagnose() {
     ensure_dependencies || true
     run_health_checks
     read_router_state
+    read_spoke_state
+    build_advisories
     local diagnosis; diagnosis="$(diagnose)"
     cat <<EOF
 Diagnosis:        ${diagnosis}
@@ -614,6 +842,11 @@ Our internet:     ok=${OK_OUR_INTERNET} latency=${LATENCY_OUR_INTERNET:-n/a} ms
 DNS:              host=${REMOTE_DDNS} resolved=${DNS_RESOLVED:-<none>} expected=${REMOTE_WAN_IP} match=${OK_DNS_MATCH}
 ROUTER:             reachable=${ROUTER_REACHABLE} state=${ROUTER_STATE_LINE:-<n/a>}
 EOF
+    if [[ "${SPOKE_POLICY_ENABLED}" == "true" ]]; then
+        printf 'Spoke policy:     reachable=%s state=%s observed=%s\n' \
+            "${SPOKE_REACHABLE}" "${SPOKE_POLICY_LINE:-<n/a>}" "${SPOKE_WAN_OBSERVED:-<n/a>}"
+        printf 'Advisories:       %s\n' "${ADVISORIES:-<none>}"
+    fi
     exit 0
 }
 

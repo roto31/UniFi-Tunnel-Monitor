@@ -23,6 +23,7 @@ live in identifiers and paths.
 | `REPLACE_WITH_ALERT_FROM_ADDRESS`        | "From" header on alerts (must equal `SMTP_USERNAME` on iCloud) | `you@icloud.com`                              |
 | `REPLACE_WITH_ALERT_TO_ADDRESS`          | Where alerts are sent (your own inbox, usually)             | `you@icloud.com`                                 |
 | `REPLACE_WITH_SUBJECT_PREFIX`            | Identifies which vantage point sent the alert               | `[MAC]`, `[ROUTER]`, `[SPOKE-MAC]`             |
+| `REPLACE_WITH_SPOKE_GATEWAY_IP`          | Spoke gateway LAN IP, reachable through the tunnel (optional) | `198.51.100.1`                                |
 
 ## 1b. Spoke-side (inverted topology)
 

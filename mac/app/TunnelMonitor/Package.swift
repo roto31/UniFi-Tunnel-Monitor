@@ -13,6 +13,12 @@ let package = Package(
         .executableTarget(
             name: "TunnelMonitor",
             path: "Sources/TunnelMonitor"
+        ),
+        .testTarget(
+            name: "TunnelMonitorTests",
+            dependencies: ["TunnelMonitor"],
+            path: "Tests",
+            exclude: ["Fixtures"]
         )
     ]
 )

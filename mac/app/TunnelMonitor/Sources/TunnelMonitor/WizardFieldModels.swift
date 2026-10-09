@@ -5,12 +5,23 @@ struct WizardFieldSpec: Codable, Identifiable, Hashable {
     let key: String
     let label: String
     let secure: Bool
+    let toggle: Bool
     let defaultValue: String?
     let help: String?
 
     enum CodingKeys: String, CodingKey {
-        case key, label, secure, help
+        case key, label, secure, toggle, help
         case defaultValue = "default"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        key = try container.decode(String.self, forKey: .key)
+        label = try container.decode(String.self, forKey: .label)
+        secure = try container.decodeIfPresent(Bool.self, forKey: .secure) ?? false
+        toggle = try container.decodeIfPresent(Bool.self, forKey: .toggle) ?? false
+        defaultValue = try container.decodeIfPresent(String.self, forKey: .defaultValue)
+        help = try container.decodeIfPresent(String.self, forKey: .help)
     }
 }
 
@@ -83,6 +94,17 @@ enum WizardFieldLoader {
             {"key": "PING_TIMEOUT", "label": "Ping timeout (seconds)", "secure": false, "default": "2", "help": null},
             {"key": "NOTIFY_SOUND_DOWN", "label": "Banner sound (down)", "secure": false, "default": "Glass", "help": null},
             {"key": "NOTIFY_SOUND_RECOVERY", "label": "Banner sound (recovery)", "secure": false, "default": "Hero", "help": null}
+          ]
+        },
+        {
+          "title": "Spoke policy route (optional)",
+          "fields": [
+            {"key": "SPOKE_POLICY_ENABLED", "label": "Watch spoke policy route", "secure": false, "toggle": true, "default": "false", "help": "Off leaves checks identical to 1.3.1."},
+            {"key": "SPOKE_HOST", "label": "Spoke gateway IP", "secure": false, "default": "", "help": "LAN gateway at the spoke, reachable through the tunnel."},
+            {"key": "SPOKE_USER", "label": "Spoke SSH user", "secure": false, "default": "root", "help": null},
+            {"key": "SPOKE_KEY", "label": "Spoke SSH key path", "secure": false, "default": "/opt/tunnel-monitor/.ssh/id_ed25519", "help": null},
+            {"key": "SPOKE_POLICY_STATE_PATH", "label": "Policy-state path", "secure": false, "default": "/data/tunnel-monitor/policy-state", "help": null},
+            {"key": "SPOKE_POLICY_LABEL", "label": "Policy route label", "secure": false, "default": "Spoke policy route", "help": null}
           ]
         }
       ]

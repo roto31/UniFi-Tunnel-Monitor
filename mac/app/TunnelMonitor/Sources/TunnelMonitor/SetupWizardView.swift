@@ -92,22 +92,34 @@ struct SetupWizardView: View {
     @ViewBuilder
     private func fieldRow(_ field: WizardFieldSpec) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(field.label)
-                .font(.subheadline.weight(.medium))
-            Group {
-                if field.secure {
-                    SecureField("", text: binding(for: field.key))
-                } else {
-                    TextField("", text: binding(for: field.key))
+            if field.toggle {
+                Toggle(field.label, isOn: toggleBinding(for: field.key))
+                    .font(.subheadline.weight(.medium))
+            } else {
+                Text(field.label)
+                    .font(.subheadline.weight(.medium))
+                Group {
+                    if field.secure {
+                        SecureField("", text: binding(for: field.key))
+                    } else {
+                        TextField("", text: binding(for: field.key))
+                    }
                 }
+                .textFieldStyle(.roundedBorder)
             }
-            .textFieldStyle(.roundedBorder)
             if let help = field.help, !help.isEmpty {
                 Text(help)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func toggleBinding(for key: String) -> Binding<Bool> {
+        Binding(
+            get: { values[key, default: "false"] == "true" },
+            set: { values[key] = $0 ? "true" : "false" }
+        )
     }
 
     private func binding(for key: String) -> Binding<String> {
@@ -138,7 +150,7 @@ struct SetupWizardView: View {
             for f in section.fields {
                 let trimmed = values[f.key, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
                 let v = trimmed.isEmpty ? (f.defaultValue ?? "") : trimmed
-                if v.contains("REPLACE_WITH") {
+                if v.contains("REPLACE_WITH") && !f.key.hasPrefix("SPOKE_") {
                     errorMessage = "Replace every REPLACE_WITH_* placeholder (\(f.label))"
                     return
                 }
@@ -154,7 +166,13 @@ struct SetupWizardView: View {
             }
         }
 
-        let body = ConfigEnvWriter.renderLines(pairs)
+        let (readCode, existing) = Actions.runAsRoot("/bin/cat '\(MonitorPaths.config)'")
+        let body: String
+        if readCode == 0 && existing.contains("=") {
+            body = ConfigEnvWriter.merge(existing: existing, pairs: pairs)
+        } else {
+            body = ConfigEnvWriter.renderLines(pairs)
+        }
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("tunnel-monitor-config-\(UUID().uuidString).env")
         do {

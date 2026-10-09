@@ -22,4 +22,19 @@ enum AppBranding {
     static var statusBannerTitle: String {
         string(for: "TMStatusBannerTitle", default: "Tunnel Monitor")
     }
+
+    /// Menu title for the optional spoke policy-route card.
+    static var spokePolicySectionTitle: String {
+        string(for: "TMSpokePolicySectionTitle", default: "Spoke policy route")
+    }
+
+    /// Short gateway name taken from the dedup section title ("UDR7 dedup" → "UDR7").
+    static var routerShortName: String {
+        let title = dedupSectionTitle
+        let suffix = " dedup"
+        if title.lowercased().hasSuffix(suffix) {
+            return String(title.dropLast(suffix.count))
+        }
+        return title
+    }
 }

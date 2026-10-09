@@ -47,5 +47,7 @@
     <string>Router dedup</string>
     <key>TMStatusBannerTitle</key>
     <string>Tunnel Monitor</string>
+    <key>TMSpokePolicySectionTitle</key>
+    <string>Spoke policy route</string>
 </dict>
 </plist>

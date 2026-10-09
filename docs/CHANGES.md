@@ -1,5 +1,17 @@
 # Changes log (operator)
 
+## 2026-10-08 — Spoke policy-route visibility 1.4.0
+
+**What was done:** Opt-in Mac check of the spoke policy-state file and observed public IP. UI advisories and one banner per transition. No email and no diagnosis change. Gateway diagnostics print OpenVPN status when IPsec has no SAs. Private install label stays `com.ruter.tunnel-monitor`; public Info.plist stays sanitized.
+
+**Files changed:** `mac/payload/opt/tunnel-monitor/monitor.sh`, `ssh-spoke-state.sh`, `tunnel-check`, `config.env.template`, `mac/install.sh`, `mac/verify.sh`, `mac/app/TunnelMonitor` sources and Resources, `unifi/monitor.sh`, `mac/CHANGELOG.md`, `datasets/bundle-manifest.json`, `PLACEHOLDERS.md`, `verify-1.4.0.sh`.
+
+**Commands run:** `/bin/bash -n` on payload scripts; `bash -n unifi/monitor.sh`; `swift test`; `VERSION=1.4.0 bash build/build-app.sh`; `sudo bash mac/install.sh` (config.env and state.json preserved).
+
+**Verified by:** `verify-1.4.0.sh`.
+
+**Rollback:** Restore `/opt/tunnel-monitor` from `~/UniFi-Backups/tunnel-monitor-pre-1.4.0-*` and reinstall the 1.3.1 app. Set `SPOKE_POLICY_ENABLED="false"`.
+
 ## 2026-09-06 — Mac SSH Test elevation + ROUTER_/UDR7_ aliases
 
 **What was done:** In-app SSH Test runs `tunnel-check --ssh-test` as root. `ssh-router-state.sh` accepts wizard `UDR7_*` keys. Wizard Save emits both key families. Tagged **v1.3.1** for a signed+notarized pkg (cannot reuse 1.3.0).

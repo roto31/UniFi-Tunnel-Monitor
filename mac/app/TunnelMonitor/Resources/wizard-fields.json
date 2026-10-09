@@ -152,6 +152,54 @@
           "help": null
         }
       ]
+    },
+    {
+      "title": "Spoke policy route (optional)",
+      "fields": [
+        {
+          "key": "SPOKE_POLICY_ENABLED",
+          "label": "Watch spoke policy route",
+          "secure": false,
+          "toggle": true,
+          "default": "false",
+          "help": "Off leaves checks identical to 1.3.1. Alerts stay on the spoke; this Mac shows a banner only."
+        },
+        {
+          "key": "SPOKE_HOST",
+          "label": "Spoke gateway IP",
+          "secure": false,
+          "default": "",
+          "help": "LAN gateway at the spoke, reachable through the tunnel. Placeholder: REPLACE_WITH_SPOKE_GATEWAY_IP."
+        },
+        {
+          "key": "SPOKE_USER",
+          "label": "Spoke SSH user",
+          "secure": false,
+          "default": "root",
+          "help": null
+        },
+        {
+          "key": "SPOKE_KEY",
+          "label": "Spoke SSH key path",
+          "secure": false,
+          "default": "/opt/tunnel-monitor/.ssh/id_ed25519",
+          "help": "Same key as router dedup."
+        },
+        {
+          "key": "SPOKE_POLICY_STATE_PATH",
+          "label": "Policy-state path on the spoke",
+          "secure": false,
+          "default": "/data/tunnel-monitor/policy-state",
+          "help": null
+        },
+        {
+          "key": "SPOKE_POLICY_LABEL",
+          "label": "Policy route label",
+          "secure": false,
+          "default": "Spoke policy route",
+          "help": "Shown on the status card."
+        }
+      ]
     }
   ]
 }

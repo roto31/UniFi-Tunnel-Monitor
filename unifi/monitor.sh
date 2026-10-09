@@ -96,6 +96,33 @@ check_ipsec() {
     ipsec statusall 2>/dev/null | grep -q "ESTABLISHED"
 }
 
+# IPsec block when statusall shows SAs; otherwise OpenVPN (this site's transport).
+vpn_status_block() {
+    local ipsec_out sa_lines
+    ipsec_out="$(ipsec statusall 2>/dev/null || true)"
+    sa_lines="$(printf '%s\n' "${ipsec_out}" | grep -E '(ESTABLISHED|CONNECTING|INSTALLED|Security Associations \([1-9]|[a-f0-9]{20,}:)' | head -20 || true)"
+    if [[ -n "${sa_lines}" ]]; then
+        printf '%s\n' "[ IPsec Status ]"
+        printf '%s\n' "${sa_lines}"
+        printf '\n%s\n' "[ Recent strongSwan Log (last 15 lines) ]"
+        journalctl --no-pager -n 15 2>/dev/null | grep -i charon || echo "  No recent charon log entries"
+        return 0
+    fi
+
+    printf '%s\n' "[ OpenVPN Status ]"
+    pgrep -a openvpn 2>/dev/null || echo "  openvpn process not running"
+    ip -4 -o addr show 2>/dev/null | grep -E 'tun[0-9]' || echo "  no tun[0-9] IPv4 address"
+    local tun_if
+    tun_if="$(ip -4 -o addr show 2>/dev/null | grep -E 'tun[0-9]' | awk '{print $2}' | head -1 || true)"
+    if [[ -n "${tun_if}" ]]; then
+        ip -s link show "${tun_if}" 2>/dev/null || echo "  ip link show ${tun_if} failed"
+    else
+        echo "  no tunnel interface for ip -s link show"
+    fi
+    printf '\n%s\n' "[ Recent OpenVPN Log (last 15 lines) ]"
+    journalctl --no-pager -n 400 2>/dev/null | grep -i openvpn | tail -n 15 || echo "  No recent openvpn journal entries"
+}
+
 # Build a rich diagnostic block for the alert email.
 build_diagnostics() {
     local resolved_ip
@@ -121,11 +148,7 @@ TUNNEL DIAGNOSTICS — $(date '+%Y-%m-%d %H:%M:%S %Z')
   Ping ${REMOTE_WAN_IP} (over internet):     $(check_ping "$REMOTE_WAN_IP" && echo "OK ✓" || echo "FAIL ✗")
   Ping 1.1.1.1 (sanity / our internet):      $(check_ping "1.1.1.1" && echo "OK ✓" || echo "FAIL ✗")
 
-[ IPsec Status ]
-$(ipsec statusall 2>/dev/null | grep -E "(ESTABLISHED|CONNECTING|INSTALLED|Security Associations|^[a-f0-9]{20,}:)" | head -20 || echo "  ipsec statusall returned no relevant output")
-
-[ Recent strongSwan Log (last 15 lines) ]
-$(journalctl --no-pager -n 15 | grep -i charon || echo "  No recent charon log entries")
+$(vpn_status_block)
 
 ==============================================
 EOF

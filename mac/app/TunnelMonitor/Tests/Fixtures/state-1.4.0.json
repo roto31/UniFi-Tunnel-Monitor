@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-10-08T18:00:00Z",
+  "alert_state": "UP",
+  "failure_count": 0,
+  "checks": {
+    "tunnel": { "target": "192.0.2.1", "ok": true, "latency_ms": 11 },
+    "remote_wan": { "target": "198.51.100.23", "ok": true, "latency_ms": 18 },
+    "our_internet": { "target": "1.1.1.1", "ok": true, "latency_ms": 7 },
+    "dns": {
+      "host": "remote.example.com",
+      "resolved": "198.51.100.23",
+      "expected": "198.51.100.23",
+      "match": true
+    }
+  },
+  "router_dedup": { "reachable": true, "state": "0:UP", "checked_at": "2026-10-08T18:00:00Z" },
+  "last_alert_sent_at": null,
+  "last_recovery_sent_at": null,
+  "diagnosis": "HEALTHY",
+  "spoke_policy": {
+    "enabled": true,
+    "reachable": true,
+    "state": "0:UP",
+    "label": "Spoke policy route",
+    "checked_at": "2026-10-08T18:00:00Z"
+  },
+  "remote_wan_observed": "198.51.100.23",
+  "advisories": []
+}

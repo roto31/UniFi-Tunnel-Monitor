@@ -56,6 +56,46 @@ enum ConfigEnvWriter {
         return out
     }
 
+    /// Replace wizard keys in an existing config.env and append any that are new.
+    /// Comments and unknown keys are kept. ROUTER_*/UDR7_* aliases are filled in.
+    static func merge(existing: String, pairs: [(key: String, value: String)]) -> String {
+        let expanded = withDedupAliases(pairs)
+        var updates: [String: String] = [:]
+        for pair in expanded {
+            updates[pair.key] = pair.value
+        }
+        var seen = Set<String>()
+        var lines = existing.components(separatedBy: "\n")
+        for index in lines.indices {
+            let line = lines[index]
+            guard let key = configKey(in: line), let value = updates[key] else { continue }
+            lines[index] = "\(key)=\"\(escapeValue(value))\""
+            seen.insert(key)
+        }
+        var extras: [String] = []
+        for pair in expanded where !seen.contains(pair.key) {
+            extras.append("\(pair.key)=\"\(escapeValue(pair.value))\"")
+            seen.insert(pair.key)
+        }
+        if !extras.isEmpty {
+            if lines.last?.isEmpty == false {
+                lines.append("")
+            }
+            lines.append(contentsOf: extras)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func configKey(in line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.hasPrefix("#"), let eq = trimmed.firstIndex(of: "=") else { return nil }
+        let key = String(trimmed[..<eq]).trimmingCharacters(in: .whitespaces)
+        guard !key.isEmpty, key.allSatisfy({ $0 == "_" || ($0 >= "A" && $0 <= "Z") || ($0 >= "0" && $0 <= "9") }) else {
+            return nil
+        }
+        return key
+    }
+
     private static func escapeValue(_ raw: String) -> String {
         raw
             .replacingOccurrences(of: "\\", with: "\\\\")
