@@ -60,6 +60,8 @@ its own checks — single source of truth.
 ├── notify.sh                   # banner via launchctl asuser + osascript
 ├── tunnel-check                # operator CLI (symlinked to /usr/local/bin/)
 ├── ssh-router-state.sh         # reads router state file via SSH for dedup
+├── ssh-spoke-state.sh          # reads spoke policy-state + observed WAN
+├── spoke-policy-check.sh       # installed on the spoke; writes policy-state
 ├── config.env                  # SMTP creds + topology + tuning (chmod 0600)
 ├── config.env.template         # safe-to-share template
 ├── state.json                  # current health state (atomic writes)
@@ -179,6 +181,8 @@ value means.
 | `tunnel-check --tail`                | `tail -f /opt/tunnel-monitor/monitor.log`     |
 | `tunnel-check --history`             | Last 50 log lines                             |
 | `sudo tunnel-check --ssh-test`       | Verify SSH-based router dedup works           |
+| `sudo tunnel-check --spoke-test`     | Verify spoke SSH and the policy-state line    |
+| `sudo tunnel-check --spoke-install-checker` | Install the spoke policy checker (needs `SPOKE_POLICY_SOURCE_CIDR`) |
 | `tunnel-check --status`              | `launchctl print` of the daemon               |
 
 ---

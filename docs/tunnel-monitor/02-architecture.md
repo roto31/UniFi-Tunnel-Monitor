@@ -168,6 +168,9 @@ sequenceDiagram
 | `checks.tunnel` / `remote_wan` / `our_internet` | Per-check `ok`, `target`, `latency_ms` |
 | `checks.dns` | `host`, `resolved`, `expected`, `match` |
 | `udr7_dedup` or `router_dedup` | `reachable`, `state` (e.g. `0:UP`), `checked_at` |
+| `spoke_policy` | `enabled`, `reachable`, `state` (`0:UP`, `N:DOWN`, or null), `label`, `checked_at` |
+| `remote_wan_observed` | Public IPv4 seen from the spoke, when the spoke SSH read succeeds |
+| `advisories` | UI-only codes. Empty when the spoke feature is off. Never emailed. |
 
 The app decoder accepts either `udr7_dedup` or `router_dedup` for sanitized vs private deployments.
 
@@ -177,8 +180,8 @@ The app decoder accepts either `udr7_dedup` or `router_dedup` for sanitized vs p
 
 | UI | Condition (simplified) |
 |----|-------------------------|
-| Green | `diagnosis` HEALTHY and `failure_count` 0 |
-| Yellow | Unhealthy diagnosis or failures while `alert_state` still UP |
+| Green | `diagnosis` HEALTHY and no spoke advisories |
+| Yellow | Spoke advisory while `diagnosis` is still HEALTHY, or failures while `alert_state` is UP |
 | Red | `alert_state` DOWN |
 
 Poll interval is **not** the daemon interval. Settings only control how often the app re-reads `state.json` (5, 15, or 30 seconds).

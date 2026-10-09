@@ -95,6 +95,14 @@ Use Tailscale (or similar) for **operator SSH** when site-to-site VPN is down. H
 
 ---
 
+## Policy-route check from the hub Mac
+
+This is separate from installing Tunnel Monitor on the spoke. When `SPOKE_POLICY_ENABLED=true`, the hub Mac reads `/data/tunnel-monitor/policy-state` after the tunnel ping succeeds. **Install Checker** copies `spoke-policy-check.sh` onto the spoke and runs it every 5 minutes. The file is `0:UP` when `SPOKE_POLICY_SOURCE_CIDR` is in the gateway's policy-routing set and that mark uses a tunnel interface. Advisories stay on the menu and one banner. They do not send email.
+
+See [tunnel-monitor/04-usage-guide.md](tunnel-monitor/04-usage-guide.md) and [PLACEHOLDERS.md](../PLACEHOLDERS.md).
+
+---
+
 ## See also
 
 - [architecture.md](architecture.md) — hub dual-monitor design

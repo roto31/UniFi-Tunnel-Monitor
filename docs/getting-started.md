@@ -36,7 +36,7 @@ flowchart LR
 | Role | Typical device | This repo |
 |------|----------------|-----------|
 | **Local hub** | UDR7, UDM-Pro, UDM | `unifi/` + optional `wan-guard/` |
-| **Remote spoke** | UDM, UDM-SE | UniFi VPN config only (no extra scripts required) |
+| **Remote spoke** | UDM, UDM-SE | UniFi VPN config. Optional policy checker, installed from the hub Mac |
 | **LAN client** | Mac on local LAN | `mac/` |
 
 Replace **Local hub** / **Remote spoke** with your site names in UniFi and in your notes.

@@ -92,6 +92,20 @@ Open via **Setup…** in the menu bar popover, or automatically on first launch 
 
 Sanitized public builds may label this section **Router dedup** in the UI via `Info.plist`; keys remain `UDR7_*` or `ROUTER_*` in `config.env`.
 
+### Spoke policy route (optional)
+
+Off by default. When enabled, the Mac SSHs to the spoke only after the tunnel ping succeeds.
+
+| Key | Label | Default | Notes |
+|-----|-------|---------|-------|
+| `SPOKE_POLICY_ENABLED` | Watch spoke policy route | `false` | Advisories are UI and one banner. No email. |
+| `SPOKE_HOST` | Spoke gateway IP | | LAN address reachable through the tunnel |
+| `SPOKE_USER` | Spoke SSH user | `root` | |
+| `SPOKE_KEY` | Spoke SSH key path | `/opt/tunnel-monitor/.ssh/id_ed25519` | Same key as router dedup |
+| `SPOKE_POLICY_STATE_PATH` | Policy-state path | `/data/tunnel-monitor/policy-state` | Written by the spoke checker |
+| `SPOKE_POLICY_LABEL` | Policy route label | `Spoke policy route` | Menu card title |
+| `SPOKE_POLICY_SOURCE_CIDR` | Policy source prefix | | IPv4 prefix the route sends through the tunnel. Required by **Install Checker**. |
+
 ### Tuning & notifications
 
 ![Tuning section](images/setup-tuning.png)

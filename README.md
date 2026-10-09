@@ -20,6 +20,11 @@ SwiftBar). Together they give you:
 - **Optional self-healing** on the UniFi gateway — bounded `ip link` /
   `ipsec` recovery before a DOWN email. Off by default. See
   [docs/self-healing.md](docs/self-healing.md).
+- **Optional spoke policy-route check** (Mac, off by default). After the tunnel
+  ping succeeds, the menu shows whether a configured source prefix is
+  policy-routed through the VPN. **Install Checker** puts the writer on the
+  spoke. Advisories are menu and banner only — they do not send email or
+  change `diagnosis`. See [mac/CHANGELOG.md](mac/CHANGELOG.md).
 
 > ⚠️ **This is a sanitized public release.** Every IP, hostname, email
 > address, and identifier in the configs and scripts has been replaced with
