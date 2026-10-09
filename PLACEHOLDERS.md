@@ -24,6 +24,7 @@ live in identifiers and paths.
 | `REPLACE_WITH_ALERT_TO_ADDRESS`          | Where alerts are sent (your own inbox, usually)             | `you@icloud.com`                                 |
 | `REPLACE_WITH_SUBJECT_PREFIX`            | Identifies which vantage point sent the alert               | `[MAC]`, `[ROUTER]`, `[SPOKE-MAC]`             |
 | `REPLACE_WITH_SPOKE_GATEWAY_IP`          | Spoke gateway LAN IP, reachable through the tunnel (optional) | `198.51.100.1`                                |
+| `REPLACE_WITH_SPOKE_POLICY_SOURCE_CIDR`  | IPv4 prefix the spoke policy route sends through the tunnel   | `203.0.113.0/24`                                  |
 
 ## 1b. Spoke-side (inverted topology)
 

@@ -1,5 +1,17 @@
 # Changes log (operator)
 
+## 2026-10-08 — Spoke policy checker 1.5.0
+
+**What was done:** The Mac can install a checker on the spoke gateway. The checker reads the gateway policy-routing mark for `SPOKE_POLICY_SOURCE_CIDR` and writes `/data/tunnel-monitor/policy-state`. Advisories stay UI-only. Diagnosis and email are unchanged.
+
+**Files changed:** `mac/payload/opt/tunnel-monitor/spoke-policy-check.sh`, `tunnel-check`, `config.env.template`, `mac/install.sh`, app Actions and status menu, `wizard-fields.json`, `mac/CHANGELOG.md`, `datasets/bundle-manifest.json`, `PLACEHOLDERS.md`.
+
+**Commands run:** `bash -n` on the new scripts; `spoke-policy-check.sh --self-test`; `tunnel-check --spoke-install-checker` on the live spoke; `VERSION=1.5.0 bash build/build-app.sh`.
+
+**Verified by:** self-test, spoke SSH test showing `0:UP` when the route is present, menu card after a daemon kick.
+
+**Rollback:** On the spoke, `systemctl disable --now tunnel-monitor-policy.timer` and remove `/data/tunnel-monitor/policy-state`. Set `SPOKE_POLICY_ENABLED="false"` to hide the card. Reinstall the 1.4.0 app.
+
 ## 2026-10-08 — Spoke policy-route visibility 1.4.0
 
 **What was done:** Opt-in Mac check of the spoke policy-state file and observed public IP. UI advisories and one banner per transition. No email and no diagnosis change. Gateway diagnostics print OpenVPN status when IPsec has no SAs. Private install label stays `com.ruter.tunnel-monitor`; public Info.plist stays sanitized.

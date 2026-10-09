@@ -11,6 +11,17 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-08
+
+### Added
+
+- Spoke policy checker (`spoke-policy-check.sh`). Menu action **Install Checker** (`tunnel-check --spoke-install-checker`) copies it to the spoke, runs it every 5 minutes, and writes the policy-state file the 1.4.0 card already reads. See [Placeholders](../PLACEHOLDERS.md).
+- Setup field **Policy source prefix** (`SPOKE_POLICY_SOURCE_CIDR`).
+
+### Data
+
+- `wizard-fields` dataRevision `public-v3`.
+
 ## [1.4.0] - 2026-10-08
 
 ### Added

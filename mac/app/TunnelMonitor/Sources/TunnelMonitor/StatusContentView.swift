@@ -303,6 +303,12 @@ struct StatusContentView: View {
                 .tmGlassActionButton()
             }
             HStack(spacing: 8) {
+                Button { runAction { Actions.installSpokeChecker() } } label: {
+                    Label("Install Checker", systemImage: "arrow.down.circle")
+                }
+                .tmGlassActionButton()
+            }
+            HStack(spacing: 8) {
                 Button { runAction { Actions.resetState() } } label: {
                     Label("Reset State", systemImage: "arrow.counterclockwise")
                 }

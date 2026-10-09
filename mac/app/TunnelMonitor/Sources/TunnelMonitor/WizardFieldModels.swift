@@ -104,7 +104,8 @@ enum WizardFieldLoader {
             {"key": "SPOKE_USER", "label": "Spoke SSH user", "secure": false, "default": "root", "help": null},
             {"key": "SPOKE_KEY", "label": "Spoke SSH key path", "secure": false, "default": "/opt/tunnel-monitor/.ssh/id_ed25519", "help": null},
             {"key": "SPOKE_POLICY_STATE_PATH", "label": "Policy-state path", "secure": false, "default": "/data/tunnel-monitor/policy-state", "help": null},
-            {"key": "SPOKE_POLICY_LABEL", "label": "Policy route label", "secure": false, "default": "Spoke policy route", "help": null}
+            {"key": "SPOKE_POLICY_LABEL", "label": "Policy route label", "secure": false, "default": "Spoke policy route", "help": null},
+            {"key": "SPOKE_POLICY_SOURCE_CIDR", "label": "Policy source prefix", "secure": false, "default": "", "help": "IPv4 prefix the spoke policy route sends through the tunnel."}
           ]
         }
       ]
