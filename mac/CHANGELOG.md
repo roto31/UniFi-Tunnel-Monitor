@@ -18,6 +18,13 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 - Spoke policy checker (`spoke-policy-check.sh`). Menu action **Install Checker** (`tunnel-check --spoke-install-checker`) copies it to the spoke, runs it every 5 minutes, and writes the policy-state file the 1.4.0 card already reads. See [Placeholders](../PLACEHOLDERS.md).
 - Setup field **Policy source prefix** (`SPOKE_POLICY_SOURCE_CIDR`).
 
+### Docs
+
+- [Usage guide](../docs/tunnel-monitor/04-usage-guide.md) — policy card, **Install Checker**, **Spoke SSH Test**.
+- [Setup](../docs/tunnel-monitor/03-setup-installation.md) — spoke policy keys.
+- [Troubleshooting](../docs/tunnel-monitor/05-troubleshooting.md) — missing checker, firmware wipe, blackhole kill switch.
+- [Implementation guide](../docs/implementation-guide.md) phase 5 and [Spoke monitoring](../docs/spoke-monitoring.md).
+
 ### Data
 
 - `wizard-fields` dataRevision `public-v3`.

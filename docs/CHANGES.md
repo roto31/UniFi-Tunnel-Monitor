@@ -4,7 +4,7 @@
 
 **What was done:** The Mac can install a checker on the spoke gateway. The checker reads the gateway policy-routing mark for `SPOKE_POLICY_SOURCE_CIDR` and writes `/data/tunnel-monitor/policy-state`. Advisories stay UI-only. Diagnosis and email are unchanged.
 
-**Files changed:** `mac/payload/opt/tunnel-monitor/spoke-policy-check.sh`, `tunnel-check`, `config.env.template`, `mac/install.sh`, app Actions and status menu, `wizard-fields.json`, `mac/CHANGELOG.md`, `datasets/bundle-manifest.json`, `PLACEHOLDERS.md`.
+**Files changed:** `mac/payload/opt/tunnel-monitor/spoke-policy-check.sh`, `tunnel-check`, `config.env.template`, `mac/install.sh`, app Actions and status menu, `wizard-fields.json`, `mac/CHANGELOG.md`, `datasets/bundle-manifest.json`, `PLACEHOLDERS.md`, usage/setup/troubleshooting/implementation/spoke docs, `.release-notes-v1.5.0.md`.
 
 **Commands run:** `bash -n` on the new scripts; `spoke-policy-check.sh --self-test`; `tunnel-check --spoke-install-checker` on the live spoke; `VERSION=1.5.0 bash build/build-app.sh`.
 

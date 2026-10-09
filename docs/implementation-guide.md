@@ -119,8 +119,13 @@ wan-guard status
 
 If you force specific clients over the VPN (e.g. streaming devices):
 
-1. Remote spoke → Policy Engine → create policy.
+1. Remote spoke → Policy Engine → create a policy route.
 2. Set **Interface / VPN** to your **OpenVPN tunnel name** (not legacy IPsec).
+3. On the hub Mac, set `SPOKE_POLICY_ENABLED=true`, `SPOKE_HOST` to the spoke LAN gateway, and `SPOKE_POLICY_SOURCE_CIDR` to the source prefix (placeholder `REPLACE_WITH_SPOKE_POLICY_SOURCE_CIDR`).
+4. Authorize the Mac monitor key for `root` on the spoke, then **Install Checker** (or `sudo tunnel-check --spoke-install-checker`).
+5. **Force Check**. The policy card is green at `0:UP` when that prefix is marked into a tunnel routing table.
+
+The checker is not the full spoke copy of Tunnel Monitor. It only writes `/data/tunnel-monitor/policy-state`. See [spoke-monitoring.md](spoke-monitoring.md) and [tunnel-monitor/04-usage-guide.md](tunnel-monitor/04-usage-guide.md).
 
 ---
 
@@ -132,6 +137,7 @@ If you force specific clients over the VPN (e.g. streaming devices):
 | Gateway status | `tunnel-check` on gateway | `0:UP` |
 | Mac status | `tunnel-check` on Mac | `HEALTHY` |
 | SSH dedup | `sudo tunnel-check --ssh-test` on Mac | Success |
+| Spoke policy (if enabled) | **Spoke SSH Test**, then the policy card | `0:UP` when the route is installed |
 | Email | `--test-email` both sides | Received |
 | WAN Guard | `wan-guard status` | `in_sync` (if installed) |
 

@@ -65,6 +65,16 @@ Human labels in the GUI come from the same codes (e.g. **DDNS DRIFT — fix No-I
 | Permission denied | Run as root (`sudo` / in-app admin prompt). Key path `ROUTER_KEY`/`UDR7_KEY` mode `600`; pubkey on gateway `authorized_keys` |
 | Wrong state path | Match `ROUTER_STATE_PATH`/`UDR7_STATE_PATH` to gateway monitor (`/data/tunnel-monitor/state`) |
 
+## Spoke policy route
+
+| Symptom | Steps |
+|---------|--------|
+| Spoke unreachable | **Spoke SSH Test**. Authorize the monitor public key in the spoke `root` `authorized_keys`. This is the spoke console SSH user, not the UniFi device-SSH username. |
+| Not installed on spoke | Set `SPOKE_POLICY_SOURCE_CIDR`, then **Install Checker**. The Mac only reads `/data/tunnel-monitor/policy-state`; it does not create that file until the checker is installed. |
+| Card stays yellow after install | The checker counts failures. `N:UP` with N ≠ 0 clears on the next successful write (`0:UP`). |
+| Route exists in UniFi but the card is red | The checker looks for that source prefix in the gateway policy-routing ipset and a tunnel routing table (`tun`, `vtun`, `vti`, or `wg`). A kill-switch blackhole table is DOWN. |
+| Checker gone after firmware | **Install Checker** again. UniFi can wipe `/etc/systemd/system`. The script under `/data/tunnel-monitor/` may still be there. |
+
 ---
 
 ## GUI-specific issues

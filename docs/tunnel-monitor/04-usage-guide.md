@@ -42,6 +42,19 @@ Click the menu bar dot to open the status window.
 
 Shows whether the gateway SSH read succeeded and the remote state string (e.g. `0:UP`). Title comes from app branding (`UDR7 dedup` or `Router dedup`).
 
+### Spoke policy route
+
+Shown only when `SPOKE_POLICY_ENABLED` is true. The card reads a file on the spoke gateway. It does not change `diagnosis` and it does not send email. A healthy tunnel with an advisory is yellow.
+
+| State line | Card |
+|------------|------|
+| `0:UP` | Green — source prefix is routed through the tunnel |
+| `N:UP` with N ≠ 0 | Yellow — recent failures, currently up |
+| `N:DOWN` | Red — traffic is not using the tunnel |
+| file missing | Gray — checker is not installed |
+
+**Install Checker** (`sudo tunnel-check --spoke-install-checker`) copies `spoke-policy-check.sh` to the spoke, enables a 5-minute systemd timer, and writes `/data/tunnel-monitor/policy-state`. Set `SPOKE_POLICY_SOURCE_CIDR` first (Setup → **Policy source prefix**). Authorize the Mac's SSH key on the spoke once; **Spoke SSH Test** checks that login. Re-run **Install Checker** after a gateway firmware update if the timer was wiped.
+
 ### Actions
 
 | Button | Behavior |
@@ -53,6 +66,8 @@ Shows whether the gateway SSH read succeeded and the remote state string (e.g. `
 | **Tail Log** | Opens Terminal `tail -f` on `monitor.log` |
 | **Edit Config** | Terminal `sudo -e config.env` (async; status line in popover) |
 | **SSH Test** | Admin `tunnel-check --ssh-test` |
+| **Spoke SSH Test** | Admin `tunnel-check --spoke-test` |
+| **Install Checker** | Admin install of the spoke policy-state writer |
 | **Reset State** | Admin reset alert latch to UP |
 | **Copy SSH Auth Cmd** | Builds `authorized_keys` one-liner to clipboard |
 | **Reveal** | Finder reveals `state.json` |

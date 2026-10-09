@@ -24,8 +24,9 @@ All examples use **placeholders**. Configure real values via [`PLACEHOLDERS.md`]
 | Document | Description |
 |----------|-------------|
 | **[tunnel-monitor/](tunnel-monitor/README.md)** | **Tunnel Monitor.app** — overview, architecture, setup (screenshots), usage, troubleshooting |
+| [release-notes/v1.5.0.md](release-notes/v1.5.0.md) | v1.5.0 release notes (policy-route checker) |
 | [architecture.md](architecture.md) | Components, dedup, state machine, diagrams |
-| [spoke-monitoring.md](spoke-monitoring.md) | Optional remote gateway + LAN monitors |
+| [spoke-monitoring.md](spoke-monitoring.md) | Optional remote monitors, plus the hub-Mac policy-route checker |
 | [../spoke/README.md](../spoke/README.md) | Spoke config templates + deploy scripts |
 | [../mac/README.md](../mac/README.md) | Mac / LAN-client install + CLI |
 | [../unifi/README.md](../unifi/README.md) | UniFi gateway install + CLI |

@@ -139,14 +139,25 @@ jobs:
             build/releases/*/Tunnel-Monitor-*.pkg
             build/dist/Tunnel-Monitor-*.pkg
 
+      - name: Select release notes
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          V="${{ steps.ver.outputs.version }}"
+          if [[ -f "docs/release-notes/v${V}.md" ]]; then
+            cp "docs/release-notes/v${V}.md" release-body.md
+          else
+            printf '%s\n' "See [mac/CHANGELOG.md](mac/CHANGELOG.md) for ${V}." > release-body.md
+          fi
+
       - name: Create GitHub release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
+          body_path: release-body.md
           files: |
             build/releases/*/Tunnel-Monitor-*.pkg
             build/dist/Tunnel-Monitor-*.pkg
-          generate_release_notes: true
 
       - name: Restore login keychain
         if: always()
