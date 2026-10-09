@@ -171,6 +171,19 @@ else
     green "Assembled ${APP_BUNDLE}"
 fi
 
+# Optional Mac Studio branding. Source Info.plist stays sanitized.
+# Set only for a private local build; do not commit the resulting bundle.
+apply_branding_override() {
+    local key="$1" val="$2" plist="${APP_BUNDLE}/Contents/Info.plist"
+    [[ -n "${val}" && -f "${plist}" ]] || return 0
+    if ! /usr/libexec/PlistBuddy -c "Set :${key} ${val}" "${plist}" 2>/dev/null; then
+        /usr/libexec/PlistBuddy -c "Add :${key} string ${val}" "${plist}"
+    fi
+}
+apply_branding_override TMLaunchDaemonLabel "${TM_LAUNCH_DAEMON_LABEL:-}"
+apply_branding_override TMDedupSectionTitle "${TM_DEDUP_SECTION_TITLE:-}"
+apply_branding_override TMSpokePolicySectionTitle "${TM_SPOKE_POLICY_TITLE:-}"
+
 step "Phase 3 — codesign"
 ENTITLEMENTS="${ROOT_DIR}/build/TunnelMonitor.entitlements"
 if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then

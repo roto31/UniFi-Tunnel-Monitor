@@ -61,6 +61,11 @@ enum Actions {
         return code == 0 ? "OK\n\(out)" : "SSH test failed (\(code)):\n\(out)"
     }
 
+    static func spokeSshTest() -> String {
+        let (code, out) = runAsRoot("\(tunnelCheckBin) --spoke-test")
+        return code == 0 ? "OK\n\(out)" : "Spoke SSH test failed (\(code)):\n\(out)"
+    }
+
     /// Opens Terminal without blocking the main thread (required for MenuBarExtra actions).
     static func openInTerminal(_ command: String) {
         Task { @MainActor in

@@ -9,6 +9,14 @@ struct DedupBlock: Decodable, Equatable {
     let checked_at: String?
 }
 
+struct SpokePolicyBlock: Decodable, Equatable {
+    let enabled: Bool?
+    let reachable: Bool?
+    let state: String?
+    let label: String?
+    let checked_at: String?
+}
+
 struct Snapshot: Decodable, Equatable {
     struct PingCheck: Decodable, Equatable {
         let target: String?
@@ -37,11 +45,15 @@ struct Snapshot: Decodable, Equatable {
     let last_recovery_sent_at: String?
     let diagnosis: String
     let down_since: String?
+    let spoke_policy: SpokePolicyBlock?
+    let remote_wan_observed: String?
+    let advisories: [String]
 
     enum CodingKeys: String, CodingKey {
         case timestamp, alert_state, failure_count, checks
         case udr7_dedup, router_dedup
         case last_alert_sent_at, last_recovery_sent_at, diagnosis, down_since
+        case spoke_policy, remote_wan_observed, advisories
     }
 
     init(from decoder: Decoder) throws {
@@ -54,6 +66,9 @@ struct Snapshot: Decodable, Equatable {
         last_recovery_sent_at = try c.decodeIfPresent(String.self, forKey: .last_recovery_sent_at)
         diagnosis = try c.decode(String.self, forKey: .diagnosis)
         down_since = try c.decodeIfPresent(String.self, forKey: .down_since)
+        spoke_policy = try c.decodeIfPresent(SpokePolicyBlock.self, forKey: .spoke_policy)
+        remote_wan_observed = try c.decodeIfPresent(String.self, forKey: .remote_wan_observed)
+        advisories = try c.decodeIfPresent([String].self, forKey: .advisories) ?? []
 
         if let u = try c.decodeIfPresent(DedupBlock.self, forKey: .udr7_dedup) {
             dedup = u

@@ -59,7 +59,7 @@ struct StatusPresentation: Equatable {
             trafficLight: light,
             reasonText: reason,
             issues: issues,
-            downDurationText: light == .red ? downText : (light == .yellow ? downText : nil),
+            downDurationText: snapshot.diagnosis == "HEALTHY" ? nil : downText,
             failureCount: snapshot.failure_count,
             alertState: snapshot.alert_state
         )
@@ -70,6 +70,9 @@ struct StatusPresentation: Equatable {
             return .red
         }
         if snapshot.diagnosis == "HEALTHY" && snapshot.failure_count == 0 {
+            if !snapshot.advisories.isEmpty {
+                return .yellow
+            }
             return .green
         }
         if snapshot.diagnosis != "HEALTHY" || snapshot.failure_count > 0 {
@@ -126,6 +129,8 @@ struct StatusPresentation: Equatable {
             list.append(StatusIssue(id: "tunnel_down", message: "Tunnel down — remote WAN and DDNS OK", severity: sev))
         }
 
+        list.append(contentsOf: advisoryIssues(snapshot))
+
         if snapshot.failure_count > 0 && snapshot.alert_state == "UP" {
             list.append(StatusIssue(
                 id: "failures",
@@ -144,14 +149,49 @@ struct StatusPresentation: Equatable {
         case "DDNS_DRIFT":           return "DDNS DRIFT — fix No-IP record"
         case "REMOTE_INTERNET_DOWN": return "REMOTE INTERNET DOWN"
         case "OUR_INTERNET_DOWN":    return "OUR INTERNET DOWN (no alert)"
-        case "UDR7_UNREACHABLE":     return "UDR7 UNREACHABLE — Mac taking over"
-        case "DISAGREEMENT":         return "DISAGREEMENT (UDR7 says UP)"
+        case "UDR7_UNREACHABLE", "ROUTER_UNREACHABLE":
+            return "\(AppBranding.routerShortName) UNREACHABLE — Mac taking over"
+        case "DISAGREEMENT":         return "DISAGREEMENT (\(AppBranding.routerShortName) says UP)"
         default:                     return code
         }
     }
 
     private static func diagnosisIssueMessage(_ code: String) -> String {
         humanDiagnosis(code)
+    }
+
+    private static func advisoryIssues(_ snapshot: Snapshot) -> [StatusIssue] {
+        let trimmed = snapshot.spoke_policy?.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let title = trimmed.isEmpty ? AppBranding.spokePolicySectionTitle : trimmed
+        let observed = snapshot.remote_wan_observed ?? "unknown"
+        return snapshot.advisories.map { code in
+            let message: String
+            let severity: TrafficLight
+            switch code {
+            case "SPOKE_POLICY_DOWN":
+                message = "\(title): traffic is not using the tunnel (policy route broken on the spoke)"
+                severity = .red
+            case "SPOKE_POLICY_DEGRADED":
+                message = "\(title): recovering (recent failures, currently up)"
+                severity = .yellow
+            case "SPOKE_POLICY_MISSING":
+                message = "\(title): not installed on the spoke"
+                severity = .yellow
+            case "SPOKE_UNREACHABLE":
+                message = "Spoke unreachable — policy route was not checked"
+                severity = .red
+            case "REMOTE_WAN_IP_STALE":
+                message = "Remote WAN observed \(observed) — update REMOTE_WAN_IP / No-IP"
+                severity = .yellow
+            case "REMOTE_DDNS_STALE":
+                message = "Remote WAN observed \(observed) does not match DDNS — update No-IP"
+                severity = .yellow
+            default:
+                message = code
+                severity = .yellow
+            }
+            return StatusIssue(id: "advisory_\(code)", message: message, severity: severity)
+        }
     }
 
     private static func downDurationText(for snapshot: Snapshot) -> String? {

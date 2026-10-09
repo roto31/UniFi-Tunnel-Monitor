@@ -77,6 +77,19 @@
         "assets-car": "liquid-glass-v1"
       },
       "notes": "SSH Test runs as admin; UDR7_* aliases for ROUTER_* so wizard Save does not break dedup."
+    },
+    {
+      "sequence": 7,
+      "version": "1.4.0",
+      "tag": "v1.4.0",
+      "folder": "07-v1.4.0",
+      "released": "2026-10-08",
+      "dataRevision": {
+        "wizard-fields": "public-v2",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      },
+      "notes": "Opt-in spoke policy-route visibility and observed remote WAN advisories. Gateway diagnostics follow OpenVPN when IPsec SAs are absent."
     }
   ]
 }

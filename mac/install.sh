@@ -102,6 +102,7 @@ for required in \
     "${SRC_OPT}/notify.sh" \
     "${SRC_OPT}/tunnel-check" \
     "${SRC_OPT}/ssh-router-state.sh" \
+    "${SRC_OPT}/ssh-spoke-state.sh" \
     "${SRC_OPT}/config.env.template" \
     "${SRC_PLIST}" \
     "${SRC_SWIFTBAR}"
@@ -176,6 +177,7 @@ install_file "${SRC_OPT}/notify.sh"          "${INSTALL_DIR}/notify.sh"         
 install_file "${SRC_OPT}/tunnel-check"       "${INSTALL_DIR}/tunnel-check"       0755
 install_file "${SRC_OPT}/send-email.sh"      "${INSTALL_DIR}/send-email.sh"      0750
 install_file "${SRC_OPT}/ssh-router-state.sh"  "${INSTALL_DIR}/ssh-router-state.sh"  0750
+install_file "${SRC_OPT}/ssh-spoke-state.sh"   "${INSTALL_DIR}/ssh-spoke-state.sh"   0750
 
 # Always install the template at 0644 (no secrets in it).
 install_file "${SRC_OPT}/config.env.template" "${INSTALL_DIR}/config.env.template" 0644

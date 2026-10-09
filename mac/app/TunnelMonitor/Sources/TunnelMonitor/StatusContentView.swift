@@ -39,6 +39,7 @@ struct StatusContentView: View {
             }
             checksSection
             dedupSection
+            spokePolicySection
             if showActions {
                 actionsSection
             }
@@ -136,6 +137,7 @@ struct StatusContentView: View {
                              ok: s.checks.our_internet.ok,
                              latency: s.checks.our_internet.latency_ms)
                     dnsRow(s.checks.dns)
+                    observedWanRow(s)
                     Text("Failure count: \(s.failure_count)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -170,6 +172,75 @@ struct StatusContentView: View {
                 .lineLimit(2)
             Spacer()
         }
+    }
+
+    @ViewBuilder
+    private func observedWanRow(_ snapshot: Snapshot) -> some View {
+        if let observed = snapshot.remote_wan_observed, !observed.isEmpty {
+            let stale = snapshot.advisories.contains("REMOTE_WAN_IP_STALE")
+                || snapshot.advisories.contains("REMOTE_DDNS_STALE")
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(stale ? Color.yellow : Color.green)
+                    .frame(width: 8, height: 8)
+                Text(stale
+                     ? "Remote WAN observed: \(observed) — update REMOTE_WAN_IP / No-IP"
+                     : "Remote WAN observed: \(observed)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(stale ? Color.yellow : Color.secondary)
+                    .lineLimit(2)
+                Spacer()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var spokePolicySection: some View {
+        if let block = model.snapshot?.spoke_policy {
+            let trimmed = block.label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let title = trimmed.isEmpty ? AppBranding.spokePolicySectionTitle : trimmed
+            let status = spokePolicyStatus(block)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.subheadline).bold()
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(status.color)
+                        .frame(width: 8, height: 8)
+                    Text(status.text)
+                        .font(.caption)
+                    Spacer()
+                }
+            }
+            .tmGlassCard(tint: status.color)
+        }
+    }
+
+    private func spokePolicyStatus(_ block: SpokePolicyBlock) -> (text: String, color: Color) {
+        guard block.enabled == true else {
+            return ("Not configured", .gray)
+        }
+        if block.reachable == false {
+            return ("Spoke unreachable", .red)
+        }
+        guard let state = block.state, !state.isEmpty else {
+            return ("Not checked", .gray)
+        }
+        if state == "MISSING" {
+            return ("Not installed on spoke", .gray)
+        }
+        let parts = state.split(separator: ":", maxSplits: 1).map(String.init)
+        if parts.count == 2, let count = Int(parts[0]) {
+            if parts[1] == "UP" {
+                if count == 0 {
+                    return ("Routed via tunnel (\(state))", .green)
+                }
+                return ("Recovering (\(state))", .yellow)
+            }
+            if parts[1] == "DOWN" {
+                return ("BROKEN (\(state))", .red)
+            }
+        }
+        return (state, .gray)
     }
 
     @ViewBuilder
@@ -224,6 +295,10 @@ struct StatusContentView: View {
                 .tmGlassActionButton()
                 Button { runAction { Actions.sshTest() } } label: {
                     Label("SSH Test", systemImage: "key")
+                }
+                .tmGlassActionButton()
+                Button { runAction { Actions.spokeSshTest() } } label: {
+                    Label("Spoke SSH Test", systemImage: "point.3.connected.trianglepath.dotted")
                 }
                 .tmGlassActionButton()
             }
