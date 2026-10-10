@@ -16,7 +16,7 @@ Click the menu bar dot to open the status window.
 
 ![Healthy tunnel — menu bar popover](images/menu-popover-healthy.png)
 
-*Example: tunnel UP, HEALTHY diagnosis, checks green, gateway dedup reachable.*
+*Example: tunnel UP, HEALTHY diagnosis, checks green, gateway dedup reachable, spoke policy route through the tunnel. Check details are redacted.*
 
 ### Header
 
