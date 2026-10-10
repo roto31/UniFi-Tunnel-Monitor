@@ -55,6 +55,19 @@ Shown only when `SPOKE_POLICY_ENABLED` is true. The card reads a file on the spo
 
 **Install Checker** (`sudo tunnel-check --spoke-install-checker`) copies `spoke-policy-check.sh` to the spoke, enables a 5-minute systemd timer, and writes `/data/tunnel-monitor/policy-state`. Set `SPOKE_POLICY_SOURCE_CIDR` first (Setup → **Policy source prefix**). Authorize the Mac's SSH key on the spoke once; **Spoke SSH Test** checks that login. Re-run **Install Checker** after a gateway firmware update if the timer was wiped.
 
+### VPN speed (1.6.0)
+
+Shown only when an optional speed check is installed on this Mac (it writes `/opt/tunnel-monitor/speed.json` and creates the trigger file `/opt/tunnel-monitor/speed-request`). The card is informational: it never changes the traffic light, `diagnosis`, email, or the widget.
+
+| Line | Meaning |
+|------|---------|
+| `Down X Mbps · Up Y Mbps · RTT Z ms · <time>` | Last result. Down = hub to spoke, up = spoke to hub |
+| `(older than 12 h)` | The last result is stale (gray dot) |
+| `Last test failed · <time>` | The check could not measure; the reason is shown below (yellow dot) |
+| Small text | Method: `iperf3, router to router`, or `SSH copy (lower bound)` |
+
+**Run speed test now** writes the current time into `speed-request`. No admin password: the speed check's LaunchDaemon watches that file and runs the test as root. The card shows **Test requested…** until a new result arrives (about a minute) or 10 minutes pass. If the file is missing or not writable, the popover says the speed check is not installed. A test loads the tunnel for a few seconds per direction.
+
 ### Actions
 
 | Button | Behavior |
