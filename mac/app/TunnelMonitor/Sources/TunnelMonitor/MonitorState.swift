@@ -85,13 +85,17 @@ enum MonitorPaths {
     static let logFile   = "/opt/tunnel-monitor/monitor.log"
     static let config    = "/opt/tunnel-monitor/config.env"
     static let installDir = "/opt/tunnel-monitor"
+    static let speedFile = "/opt/tunnel-monitor/speed.json"
+    static let speedRequest = "/opt/tunnel-monitor/speed-request"
 }
 
-private struct ReloadPayload {
+struct ReloadPayload {
     let snapshot: Snapshot?
     let error: String?
     let presentation: StatusPresentation
     let widgetSnapshot: WidgetStatusSnapshot?
+    let speed: SpeedSnapshot?
+    let speedCheckInstalled: Bool
 }
 
 @MainActor
@@ -101,7 +105,13 @@ final class MonitorState: ObservableObject {
     @Published private(set) var lastLoadError: String?
     @Published private(set) var lastReadAt: Date = .distantPast
     @Published private(set) var presentation: StatusPresentation = .unavailable(error: nil)
+    @Published private(set) var speed: SpeedSnapshot?
+    @Published private(set) var speedCheckInstalled = false
+    @Published private(set) var speedRequestPending = false
 
+    private static let speedRequestTimeout: TimeInterval = 10 * 60
+    private var speedRequestedAt: Date?
+    private var measuredAtWhenRequested: String?
     private var timer: Timer?
     private var refreshInterval: TimeInterval = AppPreferences.refreshIntervalSeconds
     private var reloadInFlight = false
@@ -130,7 +140,12 @@ final class MonitorState: ObservableObject {
         let syncWidget = AppPreferences.widgetSyncEnabled
 
         Task.detached(priority: .utility) {
-            let payload = Self.loadPayload(from: statePath, syncWidget: syncWidget)
+            let payload = Self.loadPayload(
+                from: statePath,
+                speedPath: MonitorPaths.speedFile,
+                speedRequestPath: MonitorPaths.speedRequest,
+                syncWidget: syncWidget
+            )
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.apply(payload)
@@ -147,9 +162,40 @@ final class MonitorState: ObservableObject {
         if let widget = payload.widgetSnapshot {
             AppGroupSync.writeWidgetSnapshot(widget)
         }
+        applySpeed(payload)
     }
 
-    nonisolated private static func loadPayload(from path: String, syncWidget: Bool) -> ReloadPayload {
+    private func applySpeed(_ payload: ReloadPayload) {
+        if speed != payload.speed { speed = payload.speed }
+        if speedCheckInstalled != payload.speedCheckInstalled { speedCheckInstalled = payload.speedCheckInstalled }
+        guard speedRequestPending else { return }
+        let resultChanged = payload.speed?.measured_at != measuredAtWhenRequested
+        let timedOut = Date().timeIntervalSince(speedRequestedAt ?? .distantPast) > Self.speedRequestTimeout
+        if resultChanged || timedOut {
+            speedRequestPending = false
+            speedRequestedAt = nil
+        }
+    }
+
+    /// Asks the speed check's LaunchDaemon to run now by touching its trigger file (no admin rights).
+    func requestSpeedTest() -> String {
+        guard SpeedRequest.write(to: MonitorPaths.speedRequest) else {
+            return "The speed check is not installed on this Mac (\(MonitorPaths.speedRequest) is missing or not writable)."
+        }
+        measuredAtWhenRequested = speed?.measured_at
+        speedRequestedAt = Date()
+        speedRequestPending = true
+        return "Speed test requested. The result appears here in about a minute."
+    }
+
+    nonisolated static func loadPayload(
+        from path: String,
+        speedPath: String,
+        speedRequestPath: String,
+        syncWidget: Bool
+    ) -> ReloadPayload {
+        let speed = SpeedSnapshot.load(from: speedPath)
+        let speedInstalled = FileManager.default.fileExists(atPath: speedRequestPath)
         let url = URL(fileURLWithPath: path)
         do {
             let data = try Data(contentsOf: url, options: [.uncached, .mappedIfSafe])
@@ -158,10 +204,12 @@ final class MonitorState: ObservableObject {
             let widget: WidgetStatusSnapshot? = syncWidget
                 ? WidgetStatusSnapshot.from(presentation: presentation, lastCheck: decoded.timestamp)
                 : nil
-            return ReloadPayload(snapshot: decoded, error: nil, presentation: presentation, widgetSnapshot: widget)
+            return ReloadPayload(snapshot: decoded, error: nil, presentation: presentation, widgetSnapshot: widget,
+                                 speed: speed, speedCheckInstalled: speedInstalled)
         } catch {
             let presentation = StatusPresentation.unavailable(error: error.localizedDescription)
-            return ReloadPayload(snapshot: nil, error: error.localizedDescription, presentation: presentation, widgetSnapshot: nil)
+            return ReloadPayload(snapshot: nil, error: error.localizedDescription, presentation: presentation, widgetSnapshot: nil,
+                                 speed: speed, speedCheckInstalled: speedInstalled)
         }
     }
 

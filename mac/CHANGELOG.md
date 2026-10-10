@@ -25,6 +25,25 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 
 - `scripts/check-sanitized.sh` and the **Sanitization check** workflow fail on personal mailboxes, dynamic-DNS hostnames and public IPv4 addresses outside documentation ranges. Exact exceptions live in `.sanitize-allowlist`. `verify-1.4.0.sh` Gate 10 now calls the same script.
 
+## [1.6.0] - 2026-10-09
+
+### Added
+
+- **VPN speed** card in the status menu: down, up, RTT, time, method, and a `(older than 12 h)` marker. Reads `/opt/tunnel-monitor/speed.json`; shown only when an optional speed check is installed. See [Usage guide](../docs/tunnel-monitor/04-usage-guide.md#vpn-speed-160).
+- **Run speed test now** writes `/opt/tunnel-monitor/speed-request` (no admin rights) and shows **Test requested…** until the result changes. Says the speed check is not installed when the file is missing or not writable.
+
+### Changed
+
+- Speed data is loaded separately from `state.json`: it never sets the load error, never changes the traffic light, and never changes the widget snapshot.
+
+### Docs
+
+- [Usage guide](../docs/tunnel-monitor/04-usage-guide.md) — VPN speed card. [Release notes](../docs/release-notes/v1.6.0.md).
+
+### Data
+
+- No dataset change: `wizard-fields` stays `public-v3`. Bundle manifest sequence 9.
+
 ## [1.5.0] - 2026-10-08
 
 ### Added
