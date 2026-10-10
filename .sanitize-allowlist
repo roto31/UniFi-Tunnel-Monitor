@@ -1,0 +1,8 @@
+# Exact tokens that scripts/check-sanitized.sh may ignore. Placeholders and test fixtures only.
+you@icloud.com
+example.ddns.net
+# Range-boundary fixtures in unifi/wan-guard/test-wan-guard.sh
+172.15.255.255
+172.32.0.0
+100.63.255.255
+100.128.0.0

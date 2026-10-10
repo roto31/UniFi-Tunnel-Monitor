@@ -171,7 +171,7 @@ else
     green "Assembled ${APP_BUNDLE}"
 fi
 
-# Optional Mac Studio branding. Source Info.plist stays sanitized.
+# Optional local branding. Source Info.plist stays sanitized.
 # Set only for a private local build; do not commit the resulting bundle.
 apply_branding_override() {
     local key="$1" val="$2" plist="${APP_BUNDLE}/Contents/Info.plist"

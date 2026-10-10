@@ -211,7 +211,7 @@ update_noip() {
         --max-time "${CURL_TIMEOUT}" \
         --retry "${CURL_RETRIES}" \
         --retry-delay 5 \
-        --user-agent "wan-guard/1.0 roto1231@mac.com" \
+        --user-agent "wan-guard/1.0 (+https://github.com/roto31/UniFi-Tunnel-Monitor)" \
         --user "${WAN_GUARD_NOIP_USER}:${WAN_GUARD_NOIP_PASS}" \
         "${NOIP_UPDATE_URL}?hostname=${hostname}&myip=${new_ip}" \
         2>&1)" || exit_code=$?
