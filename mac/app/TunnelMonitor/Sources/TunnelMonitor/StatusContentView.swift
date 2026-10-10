@@ -40,6 +40,7 @@ struct StatusContentView: View {
             checksSection
             dedupSection
             spokePolicySection
+            speedSection
             if showActions {
                 actionsSection
             }
@@ -212,6 +213,67 @@ struct StatusContentView: View {
                 }
             }
             .tmGlassCard(tint: status.color)
+        }
+    }
+
+    @ViewBuilder
+    private var speedSection: some View {
+        if model.speed != nil || model.speedCheckInstalled {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("VPN speed").font(.subheadline).bold()
+                if let speed = model.speed {
+                    speedResultRow(speed)
+                } else {
+                    Text("No result yet.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 8) {
+                    Button { runMainActorAction { model.requestSpeedTest() } } label: {
+                        Label("Run speed test now", systemImage: "speedometer")
+                    }
+                    .tmGlassActionButton()
+                    .disabled(model.speedRequestPending)
+                    if model.speedRequestPending {
+                        Text("Test requested…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+            }
+            .tmGlassCard()
+        }
+    }
+
+    private func speedResultRow(_ speed: SpeedSnapshot) -> some View {
+        let stale = speed.isStale()
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(speed.ok ? (stale ? Color.gray : Color.green) : Color.yellow)
+                    .frame(width: 8, height: 8)
+                Text(speed.ok
+                     ? "\(speed.valuesText) · \(speed.measuredText)"
+                     : "Last test failed · \(speed.measuredText)")
+                    .font(.caption.monospaced())
+                    .lineLimit(2)
+                Spacer()
+            }
+            if stale {
+                Text("(older than 12 h)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            if !speed.ok, let error = speed.error, !error.isEmpty {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Text(speed.methodText)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 

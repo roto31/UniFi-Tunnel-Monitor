@@ -12,6 +12,18 @@
 
 **Rollback:** Mirror backups exist on the operator Mac. Pushing a mirror backup back with `git push --mirror` restores the old history; deleted packages can be re-uploaded from the local asset backup.
 
+## 2026-10-09 — VPN speed card 1.6.0
+
+**What was done:** The status menu shows the last VPN speed result from `/opt/tunnel-monitor/speed.json` (down, up, RTT, time, method, stale marker after 12 h). **Run speed test now** writes the trigger file `/opt/tunnel-monitor/speed-request`; no admin rights. Speed data is loaded separately and never affects the traffic light, load error, diagnosis, email or widget. The card is hidden unless a speed check is installed.
+
+**Files changed:** `mac/app/TunnelMonitor/Sources/TunnelMonitor/SpeedSnapshot.swift` (new), `MonitorState.swift`, `StatusContentView.swift`, `Tests/SpeedSnapshotTests.swift` (new), `Tests/Fixtures/speed-1.6.0.json` (new), `mac/CHANGELOG.md`, `datasets/bundle-manifest.json`, `docs/release-notes/v1.6.0.md`, `docs/README.md`, `docs/tunnel-monitor/04-usage-guide.md`.
+
+**Commands run:** `swift test` (9 tests); `swift build`.
+
+**Verified by:** unit tests for valid, missing-field, malformed and stale speed files, an unchanged `state.json` decode/presentation/widget with any speed file, and a trigger write that never creates the file. Not yet checked in the running menu bar app against a real speed check.
+
+**Rollback:** Reinstall the 1.5.0 app. The speed files are ignored by older versions.
+
 ## 2026-10-08 — Spoke policy checker 1.5.0
 
 **What was done:** The Mac can install a checker on the spoke gateway. The checker reads the gateway policy-routing mark for `SPOKE_POLICY_SOURCE_CIDR` and writes `/data/tunnel-monitor/policy-state`. Advisories stay UI-only. Diagnosis and email are unchanged.

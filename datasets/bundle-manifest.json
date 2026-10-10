@@ -103,6 +103,19 @@
         "assets-car": "liquid-glass-v1"
       },
       "notes": "App action installs a spoke checker that writes the policy-state file from the configured source prefix."
+    },
+    {
+      "sequence": 9,
+      "version": "1.6.0",
+      "tag": "v1.6.0",
+      "folder": "09-v1.6.0",
+      "released": "2026-10-09",
+      "dataRevision": {
+        "wizard-fields": "public-v3",
+        "app-icon": "liquid-glass-v1",
+        "assets-car": "liquid-glass-v1"
+      },
+      "notes": "VPN speed card reads speed.json; Run speed test now writes the speed-request trigger file. No dataset change."
     }
   ]
 }
