@@ -2,7 +2,7 @@
 
 [← Hub](README.md)
 
-This page describes the **Mac Studio / LAN-client** stack centered on Tunnel Monitor.app and `/opt/tunnel-monitor/`. For gateway-side monitors, WAN Guard, and multi-site topology, see [../architecture.md](../architecture.md).
+This page describes the **Mac / LAN-client** stack centered on Tunnel Monitor.app and `/opt/tunnel-monitor/`. For gateway-side monitors, WAN Guard, and multi-site topology, see [../architecture.md](../architecture.md).
 
 ---
 
