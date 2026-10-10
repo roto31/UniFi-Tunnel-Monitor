@@ -1,5 +1,17 @@
 # Changes log (operator)
 
+## 2026-10-10 — Public repository sanitization
+
+**What was done:** Removed site-identifying text from the installer welcome page, the WAN Guard User-Agent and an old verify gate. Added a sanitization check script, an allowlist and a CI workflow. Repository and wiki history were rewritten to replace earlier site-specific values, and the 1.0.0–1.5.0 installer packages were removed from Releases (notes kept).
+
+**Files changed:** `build/Resources/welcome.html`, `unifi/wan-guard/wan-guard.sh`, `verify-1.4.0.sh`, `build/build-app.sh`, `docs/tunnel-monitor/02-architecture.md`, `scripts/check-sanitized.sh`, `.sanitize-allowlist`, `.github/workflows/sanitize.yml`, `mac/CHANGELOG.md`, `docs/CHANGES.md`.
+
+**Commands run:** `bash -n` on changed scripts; `bash scripts/check-sanitized.sh`; `bash unifi/wan-guard/test-wan-guard.sh`; `git filter-repo --replace-text` on mirror clones of the repo and wiki; `gh release delete-asset` for the old packages.
+
+**Verified by:** the sanitization check passing on every branch and tag, and a full-history scan returning no site-specific values.
+
+**Rollback:** Mirror backups exist on the operator Mac. Pushing a mirror backup back with `git push --mirror` restores the old history; deleted packages can be re-uploaded from the local asset backup.
+
 ## 2026-10-08 — Spoke policy checker 1.5.0
 
 **What was done:** The Mac can install a checker on the spoke gateway. The checker reads the gateway policy-routing mark for `SPOKE_POLICY_SOURCE_CIDR` and writes `/data/tunnel-monitor/policy-state`. Advisories stay UI-only. Diagnosis and email are unchanged.
@@ -14,7 +26,7 @@
 
 ## 2026-10-08 — Spoke policy-route visibility 1.4.0
 
-**What was done:** Opt-in Mac check of the spoke policy-state file and observed public IP. UI advisories and one banner per transition. No email and no diagnosis change. Gateway diagnostics print OpenVPN status when IPsec has no SAs. Private install label stays `com.ruter.tunnel-monitor`; public Info.plist stays sanitized.
+**What was done:** Opt-in Mac check of the spoke policy-state file and observed public IP. UI advisories and one banner per transition. No email and no diagnosis change. Gateway diagnostics print OpenVPN status when IPsec has no SAs. LaunchDaemon label unchanged (`com.ruter.tunnel-monitor`); public Info.plist stays sanitized.
 
 **Files changed:** `mac/payload/opt/tunnel-monitor/monitor.sh`, `ssh-spoke-state.sh`, `tunnel-check`, `config.env.template`, `mac/install.sh`, `mac/verify.sh`, `mac/app/TunnelMonitor` sources and Resources, `unifi/monitor.sh`, `mac/CHANGELOG.md`, `datasets/bundle-manifest.json`, `PLACEHOLDERS.md`, `verify-1.4.0.sh`.
 
