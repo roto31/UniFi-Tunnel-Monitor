@@ -288,15 +288,11 @@ if [[ "${cleared}" == *SPOKE_POLICY_DOWN* ]]; then
 fi
 pass_gate "Gate 9 simulated DOWN then clear"
 
-# Gate 10 — strings introduced in this change, not historical docs.
+# Gate 10 — set SANITIZE_PATTERNS_FILE to a private pattern list kept outside git.
 echo
 echo "Gate 10: sanitization"
-hits="$(cd "${ROOT}" && git diff -U0 -- . ':(exclude)verify-1.4.0.sh' ':(exclude).build' \
-    | grep -E '^\+' | grep -v '^\+\+\+' \
-    | grep -E '192[.]168[.]|203[.]0[.]|198[.]51[.]|198[.]51[.]|onthewifi|Hub|Spoke|mac[.]com' || true)"
-if [[ -n "${hits}" ]]; then
-    printf '%s\n' "${hits}" | head -40
-    fail_gate "Gate 10 sanitization" "Remove site-specific strings from the public diff (placeholders only)."
+if ! bash "${ROOT}/scripts/check-sanitized.sh"; then
+    fail_gate "Gate 10 sanitization" "Replace site-specific strings with placeholders (see PLACEHOLDERS.md)."
 fi
 pass_gate "Gate 10 sanitization"
 

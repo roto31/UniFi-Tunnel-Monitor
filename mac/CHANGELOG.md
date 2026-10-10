@@ -11,6 +11,16 @@ Bundled data: [`datasets/bundle-manifest.json`](../datasets/bundle-manifest.json
 
 ## [Unreleased]
 
+### Security
+
+- Installer welcome screen no longer names a specific site pair; it now describes a generic hub ↔ spoke VPN. Takes effect in the next built installer.
+- WAN Guard's No-IP User-Agent is now `wan-guard/1.0 (+https://github.com/roto31/UniFi-Tunnel-Monitor)` instead of a personal contact address.
+- Installer packages for 1.0.0–1.5.0 were removed from their GitHub Releases; the release notes stay. Build from the matching tag or use the next release.
+
+### Build/CI
+
+- `scripts/check-sanitized.sh` and the **Sanitization check** workflow fail on personal mailboxes, dynamic-DNS hostnames and public IPv4 addresses outside documentation ranges. Exact exceptions live in `.sanitize-allowlist`. `verify-1.4.0.sh` Gate 10 now calls the same script.
+
 ## [1.5.0] - 2026-10-08
 
 ### Added
